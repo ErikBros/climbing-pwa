@@ -9,6 +9,7 @@ const LS_OVERRIDES = 'ct_overrides'; // per-exercise user overrides: { exId: { d
 const LS_TEMPLATE = 'ct_week_template'; // legacy recurring template — migrated into LS_WEEK_PLANS on boot
 const LS_WEEK_PLANS = 'ct_week_plans'; // per-calendar-week plans: { "2026-W28": { mon: [blockId, ...], ... }, ... }
 const LS_CUSTOM_BLOCKS = 'ct_custom_blocks'; // user-built blocks: full block objects with copied exercises
+const LS_CUSTOM_EXERCISES = 'ct_custom_exercises'; // user-created library exercises
 const LS_HIDDEN = 'ct_hidden_blocks'; // bundled block ids hidden from the picker and week planner
 
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -89,6 +90,12 @@ function loadCustomBlocks() {
 function saveCustomBlocks(blocks) {
   localStorage.setItem(LS_CUSTOM_BLOCKS, JSON.stringify(blocks));
 }
+function loadCustomExercises() {
+  try { return JSON.parse(localStorage.getItem(LS_CUSTOM_EXERCISES)) || []; } catch { return []; }
+}
+function saveCustomExercises(list) {
+  localStorage.setItem(LS_CUSTOM_EXERCISES, JSON.stringify(list));
+}
 function allBlocks() {
   // Custom entries with a bundled id shadow (replace) the bundled block in place;
   // genuinely new custom blocks append at the end.
@@ -125,11 +132,11 @@ function deleteBlock(id) {
   selectedBlockIds = selectedBlockIds.filter((b) => b !== id);
 }
 
-// Every known exercise (bundled blocks + library extras), deduped by id, grouped later by category.
+// Every known exercise (bundled blocks + library extras + user-created), deduped by id, grouped later by category.
 function libraryExercises() {
   const seen = new Set();
   const out = [];
-  for (const ex of [...schedule.blocks.flatMap((b) => b.exercises), ...(schedule.library || [])]) {
+  for (const ex of [...schedule.blocks.flatMap((b) => b.exercises), ...(schedule.library || []), ...loadCustomExercises()]) {
     if (seen.has(ex.id)) continue;
     seen.add(ex.id);
     out.push(ex);
@@ -645,22 +652,39 @@ function renderBlockEditor() {
     libList.insertAdjacentHTML('beforeend', `<h2>${catName}</h2>`);
     for (const ex of items) {
       const isChosen = chosen.has(ex.id);
-      const row = document.createElement('button');
+      const row = document.createElement(ex.custom ? 'div' : 'button');
       row.className = 'block-card' + (isChosen ? ' selected' : '');
       row.innerHTML = `
         <span class="tick">${isChosen ? '✓' : ''}</span>
         <span class="meta">
           <span class="name">${ex.name}</span><br>
-          <span class="detail">${targetText(ex)} · ${ex.cue}</span>
-        </span>`;
+          <span class="detail">${targetText(ex)}${ex.cue ? ' · ' + ex.cue : ''}</span>
+        </span>
+        ${ex.custom ? '<button class="icon-btn edit-ex">✎</button>' : ''}`;
       row.onclick = () => {
         if (isChosen) eb.exercises = eb.exercises.filter((e) => e.id !== ex.id);
         else eb.exercises.push(JSON.parse(JSON.stringify(ex)));
         render();
       };
+      if (ex.custom) {
+        row.querySelector('.edit-ex').onclick = (e) => {
+          e.stopPropagation();
+          editingExercise = JSON.parse(JSON.stringify(ex));
+          render();
+        };
+      }
       libList.appendChild(row);
     }
   }
+  libList.insertAdjacentHTML('beforeend', '<button class="btn-ghost new-exercise" id="new-exercise-btn">＋ New exercise</button>');
+  libList.querySelector('#new-exercise-btn').onclick = () => {
+    editingExercise = {
+      id: null, name: '', category: Object.keys(schedule.categories || {})[0] || 'pull',
+      metric: 'REPS', sets: 3, reps: '8', duration_sec: 30, load_kg: 0, rest_sec: 60,
+      per_side: false, cue: '',
+    };
+    render();
+  };
 
   $view.querySelector('#cancel-edit-btn').onclick = () => { editingBlock = null; render(); };
   if (eb.id) {
@@ -695,6 +719,102 @@ function renderBlockEditor() {
     else blocks.push(block);
     saveCustomBlocks(blocks);
     editingBlock = null;
+    render();
+  };
+}
+
+/* ---------------- custom exercise form ---------------- */
+
+let editingExercise = null; // null | draft exercise object (id null until first save)
+
+function exerciseDraftValid(ex) {
+  if (!ex.name.trim()) return false;
+  return ex.metric === 'TIME' ? +ex.duration_sec > 0 : String(ex.reps).trim().length > 0;
+}
+
+function renderExerciseForm() {
+  const ex = editingExercise;
+  const cats = Object.entries(schedule.categories || {});
+  const metrics = [['REPS', 'Reps'], ['REPS_LOAD', 'Reps + kg'], ['TIME', 'Seconds']];
+  const existing = ex.id && loadCustomExercises().some((e) => e.id === ex.id);
+
+  $view.innerHTML = `
+    <div class="session-head">
+      <h1>${existing ? 'Edit exercise' : 'New exercise'}</h1>
+      <div>
+        ${existing ? '<button class="btn-ghost danger" id="delete-ex-btn">Delete</button>' : ''}
+        <button class="btn-ghost" id="cancel-ex-btn">Cancel</button>
+      </div>
+    </div>
+    <input class="name-input" id="ex-name" type="text" placeholder="Exercise name" value="${ex.name.replace(/"/g, '&quot;')}">
+    <p class="sub">Category</p>
+    <div class="chip-row wrap form-chips" id="ex-cat">${cats.map(([k, label]) => `<button class="chip ${ex.category === k ? 'selected' : ''}" data-cat="${k}">${label}</button>`).join('')}</div>
+    <p class="sub">Measured in</p>
+    <div class="chip-row form-chips" id="ex-metric">${metrics.map(([k, label]) => `<button class="chip ${ex.metric === k ? 'selected' : ''}" data-metric="${k}">${label}</button>`).join('')}</div>
+    <div class="form-grid">
+      <label>Sets<input id="ex-sets" type="number" min="1" inputmode="numeric" value="${ex.sets}"></label>
+      ${ex.metric === 'TIME'
+        ? '<label>Seconds<input id="ex-secs" type="number" min="5" step="5" inputmode="numeric" value="' + ex.duration_sec + '"></label>'
+        : '<label>Reps<input id="ex-reps" type="text" inputmode="numeric" placeholder="8 or 6-10" value="' + String(ex.reps).replace(/"/g, '&quot;') + '"></label>'}
+      ${ex.metric === 'REPS_LOAD' ? '<label>kg<input id="ex-load" type="number" min="0" step="0.5" inputmode="decimal" value="' + (ex.load_kg || 0) + '"></label>' : ''}
+      <label>Rest (s)<input id="ex-rest" type="number" min="0" step="15" inputmode="numeric" value="${ex.rest_sec}"></label>
+    </div>
+    <button class="chip form-chips ${ex.per_side ? 'selected' : ''}" id="ex-per-side">Per side</button>
+    <input class="name-input" id="ex-cue" type="text" placeholder="Cue (optional) — e.g. slow on the way down" value="${(ex.cue || '').replace(/"/g, '&quot;')}">
+    <div class="start-bar">
+      <button class="btn-primary" id="save-ex-btn" ${exerciseDraftValid(ex) ? '' : 'disabled'}>Save exercise</button>
+    </div>`;
+
+  const refreshSave = () =>
+    $view.querySelector('#save-ex-btn').toggleAttribute('disabled', !exerciseDraftValid(ex));
+  const bind = (id, apply) => {
+    const el = $view.querySelector(id);
+    if (el) el.oninput = () => { apply(el.value); refreshSave(); };
+  };
+  bind('#ex-name', (v) => { ex.name = v; });
+  bind('#ex-sets', (v) => { ex.sets = v; });
+  bind('#ex-secs', (v) => { ex.duration_sec = v; });
+  bind('#ex-reps', (v) => { ex.reps = v; });
+  bind('#ex-load', (v) => { ex.load_kg = v; });
+  bind('#ex-rest', (v) => { ex.rest_sec = v; });
+  bind('#ex-cue', (v) => { ex.cue = v; });
+  for (const chip of $view.querySelectorAll('#ex-cat .chip'))
+    chip.onclick = () => { ex.category = chip.dataset.cat; render(); };
+  for (const chip of $view.querySelectorAll('#ex-metric .chip'))
+    chip.onclick = () => { ex.metric = chip.dataset.metric; render(); };
+  $view.querySelector('#ex-per-side').onclick = () => { ex.per_side = !ex.per_side; render(); };
+
+  $view.querySelector('#cancel-ex-btn').onclick = () => { editingExercise = null; render(); };
+  if (existing) {
+    $view.querySelector('#delete-ex-btn').onclick = () =>
+      confirmAsk('Delete exercise?', 'Removes it from your library. Blocks that already include it keep their copy.', 'Delete', () => {
+        saveCustomExercises(loadCustomExercises().filter((e) => e.id !== ex.id));
+        editingExercise = null;
+        render();
+      });
+  }
+  $view.querySelector('#save-ex-btn').onclick = () => {
+    if (!exerciseDraftValid(ex)) return;
+    const clean = {
+      id: ex.id || 'custom_ex_' + Date.now(),
+      name: ex.name.trim(),
+      category: ex.category,
+      metric: ex.metric,
+      sets: Math.max(1, parseInt(ex.sets, 10) || 1),
+      rest_sec: Math.max(0, parseInt(ex.rest_sec, 10) || 0),
+      cue: (ex.cue || '').trim(),
+      custom: true,
+    };
+    if (ex.metric === 'TIME') clean.duration_sec = Math.max(5, parseInt(ex.duration_sec, 10) || 30);
+    else clean.reps = String(ex.reps).trim();
+    if (ex.metric === 'REPS_LOAD') clean.load_kg = Math.max(0, parseFloat(ex.load_kg) || 0);
+    if (ex.per_side) clean.per_side = true;
+    const list = loadCustomExercises();
+    const idx = list.findIndex((e) => e.id === clean.id);
+    if (idx >= 0) list[idx] = clean;
+    else list.push(clean);
+    saveCustomExercises(list);
+    editingExercise = null;
     render();
   };
 }
@@ -1072,6 +1192,10 @@ function render() {
   }
   if (currentTab === 'week') {
     renderWeek();
+    return;
+  }
+  if (editingExercise) {
+    renderExerciseForm();
     return;
   }
   if (editingBlock) {
