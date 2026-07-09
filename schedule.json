@@ -1,7 +1,16 @@
 {
-  "version": "1.0.0",
+  "version": "1.3.0",
   "title": "Climbing Trainer",
   "notes": "Block library for a V4+/6b+ climber. Gym equipment only. No finger-strength work by design — fingers get trained on the wall.",
+  "categories": {
+    "pull": "Pull",
+    "push": "Push",
+    "core": "Core",
+    "legs": "Legs",
+    "hips": "Hips & mobility",
+    "shoulders": "Shoulders & mobility",
+    "prehab": "Prehab"
+  },
   "blocks": [
     {
       "id": "pull_strength",
@@ -11,6 +20,7 @@
         {
           "id": "scap_pullups",
           "name": "Scap pull-ups",
+          "category": "pull",
           "metric": "REPS",
           "sets": 2,
           "reps": "5",
@@ -20,6 +30,7 @@
         {
           "id": "pullups",
           "name": "Pull-ups",
+          "category": "pull",
           "metric": "REPS_LOAD",
           "sets": 4,
           "reps": "5-8",
@@ -30,6 +41,7 @@
         {
           "id": "ring_rows",
           "name": "Ring / inverted rows",
+          "category": "pull",
           "metric": "REPS",
           "sets": 3,
           "reps": "8-12",
@@ -46,6 +58,7 @@
         {
           "id": "band_pullaparts",
           "name": "Band pull-aparts",
+          "category": "shoulders",
           "metric": "REPS",
           "sets": 2,
           "reps": "15",
@@ -55,6 +68,7 @@
         {
           "id": "db_ohp",
           "name": "DB overhead press",
+          "category": "push",
           "metric": "REPS_LOAD",
           "sets": 3,
           "reps": "6-10",
@@ -65,6 +79,7 @@
         {
           "id": "dips_pushups",
           "name": "Dips or push-ups",
+          "category": "push",
           "metric": "REPS",
           "sets": 3,
           "reps": "8-12",
@@ -74,6 +89,7 @@
         {
           "id": "face_pulls",
           "name": "Face pulls",
+          "category": "shoulders",
           "metric": "REPS",
           "sets": 2,
           "reps": "12-15",
@@ -90,6 +106,7 @@
         {
           "id": "hanging_leg_raise",
           "name": "Hanging leg raises",
+          "category": "core",
           "metric": "REPS",
           "sets": 3,
           "reps": "8-12",
@@ -99,6 +116,7 @@
         {
           "id": "hollow_rock",
           "name": "Hollow body rocks",
+          "category": "core",
           "metric": "TIME",
           "sets": 3,
           "duration_sec": 25,
@@ -108,6 +126,7 @@
         {
           "id": "pallof_press",
           "name": "Pallof press",
+          "category": "core",
           "metric": "REPS",
           "sets": 2,
           "reps": "10",
@@ -125,6 +144,7 @@
         {
           "id": "ninety_ninety",
           "name": "90/90 hip switches",
+          "category": "hips",
           "metric": "REPS",
           "sets": 2,
           "reps": "8",
@@ -135,6 +155,7 @@
         {
           "id": "deep_squat_hold",
           "name": "Deep squat hold",
+          "category": "hips",
           "metric": "TIME",
           "sets": 3,
           "duration_sec": 30,
@@ -144,6 +165,7 @@
         {
           "id": "elephant_walks",
           "name": "Elephant walks",
+          "category": "hips",
           "metric": "REPS",
           "sets": 2,
           "reps": "10",
@@ -154,6 +176,7 @@
         {
           "id": "couch_stretch",
           "name": "Couch stretch",
+          "category": "hips",
           "metric": "TIME",
           "sets": 2,
           "duration_sec": 45,
@@ -171,6 +194,7 @@
         {
           "id": "tspine_foam_roll",
           "name": "T-spine extensions on roller",
+          "category": "shoulders",
           "metric": "REPS",
           "sets": 2,
           "reps": "10",
@@ -180,6 +204,7 @@
         {
           "id": "wall_slides",
           "name": "Wall slides",
+          "category": "shoulders",
           "metric": "REPS",
           "sets": 2,
           "reps": "10",
@@ -189,6 +214,7 @@
         {
           "id": "lat_stretch",
           "name": "Lat stretch on bar",
+          "category": "shoulders",
           "metric": "TIME",
           "sets": 2,
           "duration_sec": 40,
@@ -199,6 +225,7 @@
         {
           "id": "pec_doorway",
           "name": "Pec doorway stretch",
+          "category": "shoulders",
           "metric": "TIME",
           "sets": 2,
           "duration_sec": 40,
@@ -216,6 +243,7 @@
         {
           "id": "wrist_ext_curls",
           "name": "Wrist extensor curls",
+          "category": "prehab",
           "metric": "REPS_LOAD",
           "sets": 3,
           "reps": "15",
@@ -226,6 +254,7 @@
         {
           "id": "db_ext_rotation",
           "name": "DB external rotation",
+          "category": "prehab",
           "metric": "REPS_LOAD",
           "sets": 2,
           "reps": "12",
@@ -237,6 +266,7 @@
         {
           "id": "rear_delt_fly",
           "name": "Rear-delt fly",
+          "category": "prehab",
           "metric": "REPS_LOAD",
           "sets": 2,
           "reps": "12-15",
@@ -245,6 +275,224 @@
           "cue": "Hinge over, raise the DBs out to the sides, thumbs forward, no swinging."
         }
       ]
+    }
+  ],
+  "library": [
+    {
+      "id": "chin_ups",
+      "name": "Chin-ups",
+      "category": "pull",
+      "metric": "REPS_LOAD",
+      "sets": 3,
+      "reps": "6-10",
+      "load_kg": 0,
+      "rest_sec": 120,
+      "cue": "Palms toward you. Full range, control the way down."
+    },
+    {
+      "id": "lat_pulldown",
+      "name": "Lat pulldown",
+      "category": "pull",
+      "metric": "REPS_LOAD",
+      "sets": 3,
+      "reps": "8-12",
+      "load_kg": 30,
+      "rest_sec": 90,
+      "cue": "Pull to the collarbone, chest tall, no leaning back for momentum."
+    },
+    {
+      "id": "seated_cable_row",
+      "name": "Seated cable row",
+      "category": "pull",
+      "metric": "REPS_LOAD",
+      "sets": 3,
+      "reps": "8-12",
+      "load_kg": 30,
+      "rest_sec": 90,
+      "cue": "Pull to the lower ribs, squeeze the shoulder blades, slow return."
+    },
+    {
+      "id": "bench_press",
+      "name": "Bench press",
+      "category": "push",
+      "metric": "REPS_LOAD",
+      "sets": 3,
+      "reps": "5-8",
+      "load_kg": 30,
+      "rest_sec": 150,
+      "cue": "Feet planted, bar to mid-chest, press up and slightly back."
+    },
+    {
+      "id": "incline_db_press",
+      "name": "Incline DB press",
+      "category": "push",
+      "metric": "REPS_LOAD",
+      "sets": 3,
+      "reps": "8-12",
+      "load_kg": 12,
+      "rest_sec": 90,
+      "cue": "Bench at ~30°. Press up and in, don't let the DBs drift out wide."
+    },
+    {
+      "id": "lateral_raises",
+      "name": "Lateral raises",
+      "category": "push",
+      "metric": "REPS_LOAD",
+      "sets": 2,
+      "reps": "12-15",
+      "load_kg": 4,
+      "rest_sec": 60,
+      "cue": "Soft elbows, raise to shoulder height, no shrugging."
+    },
+    {
+      "id": "ab_wheel",
+      "name": "Ab-wheel rollouts",
+      "category": "core",
+      "metric": "REPS",
+      "sets": 3,
+      "reps": "6-10",
+      "rest_sec": 90,
+      "cue": "From knees. Ribs down, no lower-back sag — shorten the rollout if it arches."
+    },
+    {
+      "id": "side_plank",
+      "name": "Side plank",
+      "category": "core",
+      "metric": "TIME",
+      "sets": 2,
+      "duration_sec": 30,
+      "per_side": true,
+      "rest_sec": 45,
+      "cue": "Straight line ear to ankle, hips stacked and lifted."
+    },
+    {
+      "id": "toes_to_bar",
+      "name": "Toes to bar",
+      "category": "core",
+      "metric": "REPS",
+      "sets": 3,
+      "reps": "5-10",
+      "rest_sec": 90,
+      "cue": "Hang, lift the toes to the bar with control. Bend knees to scale."
+    },
+    {
+      "id": "v_ups",
+      "name": "V-ups",
+      "category": "core",
+      "metric": "REPS",
+      "sets": 3,
+      "reps": "10-15",
+      "rest_sec": 60,
+      "cue": "Reach hands to feet, fold in the middle, lower slowly."
+    },
+    {
+      "id": "back_squat",
+      "name": "Back squat",
+      "category": "legs",
+      "metric": "REPS_LOAD",
+      "sets": 3,
+      "reps": "5-8",
+      "load_kg": 40,
+      "rest_sec": 150,
+      "cue": "Brace, sit down between the heels, drive up. Depth before load."
+    },
+    {
+      "id": "rdl",
+      "name": "Romanian deadlift",
+      "category": "legs",
+      "metric": "REPS_LOAD",
+      "sets": 3,
+      "reps": "6-10",
+      "load_kg": 40,
+      "rest_sec": 120,
+      "cue": "Hinge at the hips, bar close to the legs, stop when the hamstrings say so."
+    },
+    {
+      "id": "split_squats",
+      "name": "Split squats",
+      "category": "legs",
+      "metric": "REPS_LOAD",
+      "sets": 3,
+      "reps": "8-10",
+      "load_kg": 8,
+      "per_side": true,
+      "rest_sec": 90,
+      "cue": "Long stance, back knee toward the floor, front heel heavy."
+    },
+    {
+      "id": "calf_raises",
+      "name": "Calf raises",
+      "category": "legs",
+      "metric": "REPS_LOAD",
+      "sets": 3,
+      "reps": "12-15",
+      "load_kg": 20,
+      "rest_sec": 60,
+      "cue": "Full stretch at the bottom, pause at the top. Useful for smearing and toe hooks."
+    },
+    {
+      "id": "pigeon_stretch",
+      "name": "Pigeon stretch",
+      "category": "hips",
+      "metric": "TIME",
+      "sets": 2,
+      "duration_sec": 45,
+      "per_side": true,
+      "rest_sec": 20,
+      "cue": "Front shin across, hips square, fold forward only as far as comfortable."
+    },
+    {
+      "id": "frog_rocks",
+      "name": "Frog rocks",
+      "category": "hips",
+      "metric": "REPS",
+      "sets": 2,
+      "reps": "10",
+      "rest_sec": 30,
+      "cue": "Knees wide on the floor, rock hips back toward the heels and forward."
+    },
+    {
+      "id": "deep_lunge_rotation",
+      "name": "Deep lunge + rotation",
+      "category": "hips",
+      "metric": "REPS",
+      "sets": 2,
+      "reps": "6",
+      "per_side": true,
+      "rest_sec": 30,
+      "cue": "Low lunge, inside hand down, rotate the other arm to the ceiling. High-step opener."
+    },
+    {
+      "id": "ytw_raises",
+      "name": "Y-T-W raises",
+      "category": "shoulders",
+      "metric": "REPS",
+      "sets": 2,
+      "reps": "8",
+      "rest_sec": 45,
+      "cue": "Chest on an incline bench. 8 reps in each letter shape, thumbs up, light or no weight."
+    },
+    {
+      "id": "cuban_rotation",
+      "name": "Cuban rotations",
+      "category": "prehab",
+      "metric": "REPS_LOAD",
+      "sets": 2,
+      "reps": "10",
+      "load_kg": 2,
+      "rest_sec": 60,
+      "cue": "Row up, rotate the forearms back, press overhead. Very light — quality only."
+    },
+    {
+      "id": "wrist_flexor_stretch",
+      "name": "Wrist flexor stretch",
+      "category": "prehab",
+      "metric": "TIME",
+      "sets": 2,
+      "duration_sec": 30,
+      "per_side": true,
+      "rest_sec": 15,
+      "cue": "Palm flat on the bench, fingers toward you, lean back gently."
     }
   ]
 }

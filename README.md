@@ -6,7 +6,9 @@ A tiny offline-first training app, built as an installable web app so it runs on
 
 ## What it does
 
-- **Block picker** — choose which training blocks to do today (Pull, Push & Shoulder, Core, Hips, Shoulder mobility, Prehab), see the estimated total time, start.
+- **Block picker** — choose which training blocks to do today (Pull, Push & Shoulder, Core, Hips, Shoulder mobility, Prehab), expand any block (▸) to preview its exercises, see the estimated total time, start.
+- **Custom blocks** — "＋ Create your own block": compose a block from a categorized exercise library (pull / push / core / legs / hips / shoulders / prehab, ~20 extra exercises beyond the bundled blocks). Custom blocks are editable/deletable (✎) and work in the weekly plan.
+- **Last-time paste** — each exercise shows an `↻ last` chip with the previous session's reps/kg; one tap pastes them into the current session's sets. Inputs also show last-time values as placeholders.
 - **Session view** — exercises with target sets/reps/load and coaching cues; tap ✓ per set; reps/kg editable per set (load prefills from your last session).
 - **Timers** — timed exercises get a full-screen countdown (3s prep, per-side switch handled automatically, ±15s/pause/skip); completing a set starts a rest countdown with ±15s, pause and skip. Audio ticks at 3-2-1 and a done-tone, screen stays awake during timers. Work and rest durations are editable in-session via the `work`/`rest` chips on each exercise — edits persist as per-exercise overrides for future sessions.
 - **Weekly plan** — assign blocks to weekdays on the Week tab; the Train picker pre-fills from today's plan (still freely adjustable on the day — deviations aren't saved, the template stays the plan).

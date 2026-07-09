@@ -45,7 +45,29 @@ button { font: inherit; color: inherit; border: none; background: none; cursor: 
   width: 100%;
   text-align: left;
 }
+.block-card { cursor: pointer; }
 .block-card.selected { border-color: var(--terracotta); background: var(--surface2); }
+.block-card.create { color: var(--text-dim); justify-content: center; border-style: dashed; border-color: var(--surface2); font-weight: 600; }
+.icon-btn { flex: none; color: var(--text-dim); font-size: 1rem; padding: 8px 10px; border-radius: 8px; }
+.block-detail {
+  background: var(--bg);
+  border: 1px solid var(--surface2);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin: -4px 0 10px;
+  font-size: 0.85rem;
+}
+.block-detail .detail-line { margin: 4px 0; color: var(--text-dim); }
+.block-detail .detail-line b { color: var(--text); font-weight: 600; }
+.name-input {
+  width: 100%;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--surface2); border-radius: var(--radius);
+  padding: 13px 14px; font: inherit; font-size: 1rem;
+  margin-bottom: 8px;
+}
+.chip.paste { background: var(--terracotta-dim); color: #fff; }
+.chip.paste .chip-label { color: rgba(255, 255, 255, 0.8); }
 .block-card .tick {
   width: 24px; height: 24px; border-radius: 50%;
   border: 2px solid var(--text-dim);

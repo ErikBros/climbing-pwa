@@ -7,6 +7,7 @@ const LS_ACTIVE = 'ct_active_session';
 const LS_HISTORY = 'ct_history';
 const LS_OVERRIDES = 'ct_overrides'; // per-exercise user overrides: { exId: { durationSec?, restSec? } }
 const LS_TEMPLATE = 'ct_week_template'; // recurring weekday plan: { mon: [blockId, ...], ... }
+const LS_CUSTOM_BLOCKS = 'ct_custom_blocks'; // user-built blocks: full block objects with copied exercises
 
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const DAY_NAMES = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
@@ -49,10 +50,43 @@ function loadTemplate() {
 function saveTemplate(t) {
   localStorage.setItem(LS_TEMPLATE, JSON.stringify(t));
 }
-// Today's planned block ids, filtered to blocks that still exist in the schedule.
+function loadCustomBlocks() {
+  try { return JSON.parse(localStorage.getItem(LS_CUSTOM_BLOCKS)) || []; } catch { return []; }
+}
+function saveCustomBlocks(blocks) {
+  localStorage.setItem(LS_CUSTOM_BLOCKS, JSON.stringify(blocks));
+}
+function allBlocks() {
+  return [...schedule.blocks, ...loadCustomBlocks()];
+}
+
+// Every known exercise (bundled blocks + library extras), deduped by id, grouped later by category.
+function libraryExercises() {
+  const seen = new Set();
+  const out = [];
+  for (const ex of [...schedule.blocks.flatMap((b) => b.exercises), ...(schedule.library || [])]) {
+    if (seen.has(ex.id)) continue;
+    seen.add(ex.id);
+    out.push(ex);
+  }
+  return out;
+}
+
+// Rough per-block minutes: setup + sets × (work + rest), matching the spirit of the Android time formula.
+function estimateDurationMin(exercises) {
+  let sec = 0;
+  for (const ex of exercises) {
+    const sides = ex.per_side ? 2 : 1;
+    const work = ex.metric === 'TIME' ? ex.duration_sec * sides : 40;
+    sec += 60 + ex.sets * (work + (ex.rest_sec || 60));
+  }
+  return Math.max(5, Math.round(sec / 60));
+}
+
+// Today's planned block ids, filtered to blocks that still exist.
 function todaysPlannedBlockIds() {
   const planned = loadTemplate()[todayKey()] || [];
-  return planned.filter((id) => schedule.blocks.some((b) => b.id === id));
+  return planned.filter((id) => allBlocks().some((b) => b.id === id));
 }
 
 /* ---------------- audio (unlocked on first touch) ---------------- */
@@ -320,34 +354,42 @@ function fmtDate(iso) {
 }
 
 function targetText(ex) {
-  // ex.sets is a count in schedule.json but an array of set objects in a session
+  // Tolerates both shapes: plan exercises (sets count, duration_sec, load_kg, reps)
+  // and session exercises (sets array, durationSec, loadKg, targetReps).
   const count = Array.isArray(ex.sets) ? ex.sets.length : ex.sets;
   const side = ex.per_side ? '/side' : '';
-  if (ex.metric === 'TIME') return `${count} × ${ex.durationSec}s${side}`;
-  const load = ex.metric === 'REPS_LOAD' && ex.loadKg ? ` @ ${ex.loadKg} kg` : '';
-  return `${count} × ${ex.targetReps}${side}${load}`;
+  if (ex.metric === 'TIME') return `${count} × ${ex.durationSec ?? ex.duration_sec}s${side}`;
+  const loadVal = ex.loadKg ?? ex.load_kg;
+  const load = ex.metric === 'REPS_LOAD' && loadVal ? ` @ ${loadVal} kg` : '';
+  return `${count} × ${ex.targetReps ?? ex.reps}${side}${load}`;
 }
 
-// Last logged load/reps for an exercise, scanning history newest-first.
-function lastLogged(exId) {
+// All done sets from the most recent session containing this exercise, newest-first scan.
+function lastLoggedSets(exId) {
   const history = loadHistory();
   for (let i = history.length - 1; i >= 0; i--) {
     for (const b of history[i].blocks) {
       for (const ex of b.exercises) {
         if (ex.id !== exId) continue;
         const doneSets = ex.sets.filter((s) => s.done);
-        if (doneSets.length) return doneSets[doneSets.length - 1];
+        if (doneSets.length) return doneSets;
       }
     }
   }
   return null;
 }
 
+// Last logged load/reps for an exercise (final set of its most recent session).
+function lastLogged(exId) {
+  const sets = lastLoggedSets(exId);
+  return sets ? sets[sets.length - 1] : null;
+}
+
 /* ---------------- session lifecycle ---------------- */
 
 function startSession() {
   const overrides = loadOverrides();
-  const blocks = schedule.blocks
+  const blocks = allBlocks()
     .filter((b) => selectedBlockIds.includes(b.id))
     .map((b) => ({
       id: b.id,
@@ -399,8 +441,10 @@ function discardSession() {
 
 /* ---------------- render: train tab ---------------- */
 
+const expandedBlocks = new Set();
+
 function renderPicker() {
-  const total = schedule.blocks
+  const total = allBlocks()
     .filter((b) => selectedBlockIds.includes(b.id))
     .reduce((sum, b) => sum + b.duration_min, 0);
 
@@ -411,6 +455,7 @@ function renderPicker() {
       ? `Pre-filled from your weekly plan (${DAY_NAMES[todayKey()]}) — adjust freely.`
       : 'Pick your blocks, then start.'}</p>
     <div id="block-list"></div>
+    <button class="block-card create" id="create-block-btn">＋ Create your own block</button>
     <div class="start-bar">
       <button class="btn-primary" id="start-btn" ${selectedBlockIds.length ? '' : 'disabled'}>
         ${selectedBlockIds.length ? `Start session · ~${total} min` : 'Select at least one block'}
@@ -418,27 +463,145 @@ function renderPicker() {
     </div>`;
 
   const list = $view.querySelector('#block-list');
-  for (const b of schedule.blocks) {
+  for (const b of allBlocks()) {
     const selected = selectedBlockIds.includes(b.id);
-    const card = document.createElement('button');
+    const expanded = expandedBlocks.has(b.id);
+    const card = document.createElement('div');
     card.className = 'block-card' + (selected ? ' selected' : '');
     card.innerHTML = `
       <span class="tick">${selected ? '✓' : ''}</span>
       <span class="meta">
         <span class="name">${b.name}</span><br>
-        <span class="detail">~${b.duration_min} min · ${b.exercises.map((e) => e.name).join(' · ')}</span>
-      </span>`;
+        <span class="detail">~${b.duration_min} min · ${b.exercises.length} exercises</span>
+      </span>
+      ${b.custom ? '<button class="icon-btn edit">✎</button>' : ''}
+      <button class="icon-btn expand">${expanded ? '▾' : '▸'}</button>`;
+
     card.onclick = () => {
       selectedBlockIds = selected
         ? selectedBlockIds.filter((id) => id !== b.id)
         : [...selectedBlockIds, b.id];
       render();
     };
+    card.querySelector('.expand').onclick = (e) => {
+      e.stopPropagation();
+      expanded ? expandedBlocks.delete(b.id) : expandedBlocks.add(b.id);
+      render();
+    };
+    if (b.custom) {
+      card.querySelector('.edit').onclick = (e) => {
+        e.stopPropagation();
+        editingBlock = { id: b.id, name: b.name, exercises: JSON.parse(JSON.stringify(b.exercises)) };
+        render();
+      };
+    }
     list.appendChild(card);
+
+    if (expanded) {
+      const detail = document.createElement('div');
+      detail.className = 'block-detail';
+      detail.innerHTML = b.exercises
+        .map((ex) => `<div class="detail-line"><b>${ex.name}</b> — ${targetText(ex)}</div>`)
+        .join('');
+      list.appendChild(detail);
+    }
   }
 
+  $view.querySelector('#create-block-btn').onclick = () => {
+    editingBlock = { id: null, name: '', exercises: [] };
+    render();
+  };
   $view.querySelector('#start-btn').onclick = () => {
     if (selectedBlockIds.length) startSession();
+  };
+}
+
+/* ---------------- custom block editor ---------------- */
+
+let editingBlock = null; // { id: string|null, name, exercises: [...] }
+
+function renderBlockEditor() {
+  const eb = editingBlock;
+  const chosen = new Set(eb.exercises.map((ex) => ex.id));
+  const estMin = eb.exercises.length ? estimateDurationMin(eb.exercises) : 0;
+
+  $view.innerHTML = `
+    <div class="session-head">
+      <h1>${eb.id ? 'Edit block' : 'New block'}</h1>
+      <div>
+        ${eb.id ? '<button class="btn-ghost danger" id="delete-block-btn">Delete</button>' : ''}
+        <button class="btn-ghost" id="cancel-edit-btn">Cancel</button>
+      </div>
+    </div>
+    <input class="name-input" id="block-name" type="text" placeholder="Block name (e.g. My Core)" value="${eb.name.replace(/"/g, '&quot;')}">
+    <p class="sub">Tap exercises to add them — tapping order = block order.</p>
+    <div id="lib-list"></div>
+    <div class="start-bar">
+      <button class="btn-primary" id="save-block-btn" ${eb.name.trim() && eb.exercises.length ? '' : 'disabled'}>
+        ${eb.exercises.length ? `Save block · ${eb.exercises.length} exercises · ~${estMin} min` : 'Pick at least one exercise'}
+      </button>
+    </div>`;
+
+  const nameInput = $view.querySelector('#block-name');
+  nameInput.oninput = () => {
+    eb.name = nameInput.value;
+    $view.querySelector('#save-block-btn').toggleAttribute('disabled', !(eb.name.trim() && eb.exercises.length));
+  };
+
+  const libList = $view.querySelector('#lib-list');
+  const lib = libraryExercises();
+  for (const [catKey, catName] of Object.entries(schedule.categories || {})) {
+    const items = lib.filter((ex) => ex.category === catKey);
+    if (!items.length) continue;
+    libList.insertAdjacentHTML('beforeend', `<h2>${catName}</h2>`);
+    for (const ex of items) {
+      const isChosen = chosen.has(ex.id);
+      const row = document.createElement('button');
+      row.className = 'block-card' + (isChosen ? ' selected' : '');
+      row.innerHTML = `
+        <span class="tick">${isChosen ? '✓' : ''}</span>
+        <span class="meta">
+          <span class="name">${ex.name}</span><br>
+          <span class="detail">${targetText(ex)} · ${ex.cue}</span>
+        </span>`;
+      row.onclick = () => {
+        if (isChosen) eb.exercises = eb.exercises.filter((e) => e.id !== ex.id);
+        else eb.exercises.push(JSON.parse(JSON.stringify(ex)));
+        render();
+      };
+      libList.appendChild(row);
+    }
+  }
+
+  $view.querySelector('#cancel-edit-btn').onclick = () => { editingBlock = null; render(); };
+  if (eb.id) {
+    $view.querySelector('#delete-block-btn').onclick = () =>
+      confirmAsk('Delete block?', 'Removes it from the picker and your weekly plan. Logged history is kept.', 'Delete', () => {
+        saveCustomBlocks(loadCustomBlocks().filter((b) => b.id !== eb.id));
+        const t = loadTemplate();
+        for (const day of DAY_KEYS) if (t[day]) t[day] = t[day].filter((id) => id !== eb.id);
+        saveTemplate(t);
+        selectedBlockIds = selectedBlockIds.filter((id) => id !== eb.id);
+        editingBlock = null;
+        render();
+      });
+  }
+  $view.querySelector('#save-block-btn').onclick = () => {
+    if (!eb.name.trim() || !eb.exercises.length) return;
+    const blocks = loadCustomBlocks();
+    const block = {
+      id: eb.id || 'custom_' + Date.now(),
+      name: eb.name.trim(),
+      duration_min: estimateDurationMin(eb.exercises),
+      custom: true,
+      exercises: eb.exercises,
+    };
+    const idx = blocks.findIndex((b) => b.id === block.id);
+    if (idx >= 0) blocks[idx] = block;
+    else blocks.push(block);
+    saveCustomBlocks(blocks);
+    editingBlock = null;
+    render();
   };
 }
 
@@ -465,9 +628,32 @@ function renderSession(session) {
         <div class="ex-target">${targetText(ex)}</div>
         <div class="ex-cue">${ex.cue}</div>`;
 
+      const lastSets = lastLoggedSets(ex.id);
+
       // Tappable timer chips — edits persist for future sessions (per-exercise override).
       const chips = document.createElement('div');
-      chips.className = 'chip-row';
+      chips.className = 'chip-row wrap';
+
+      // One-tap paste of last session's numbers (REPS / REPS_LOAD only).
+      if (lastSets && ex.metric !== 'TIME') {
+        const repsList = lastSets.map((s) => s.reps ?? '?').join(', ');
+        const lastLoad = lastSets[lastSets.length - 1].load;
+        const loadText = ex.metric === 'REPS_LOAD' && lastLoad ? ` @ ${lastLoad} kg` : '';
+        const pasteChip = document.createElement('button');
+        pasteChip.className = 'chip paste';
+        pasteChip.innerHTML = `<span class="chip-label">↻ last</span>${repsList}${loadText}`;
+        pasteChip.onclick = () => {
+          ex.sets.forEach((set, i) => {
+            if (set.done) return;
+            const src = lastSets[Math.min(i, lastSets.length - 1)];
+            set.reps = src.reps ?? set.reps;
+            if (ex.metric === 'REPS_LOAD') set.load = src.load ?? set.load;
+          });
+          saveActive(session);
+          render();
+        };
+        chips.appendChild(pasteChip);
+      }
       if (ex.metric === 'TIME') {
         const workChip = document.createElement('button');
         workChip.className = 'chip';
@@ -519,7 +705,7 @@ function renderSession(session) {
           const repsInput = document.createElement('input');
           repsInput.type = 'number';
           repsInput.inputMode = 'numeric';
-          repsInput.placeholder = ex.targetReps;
+          repsInput.placeholder = lastSets?.[si]?.reps ?? ex.targetReps;
           if (set.reps != null) repsInput.value = set.reps;
           repsInput.onchange = () => {
             set.reps = repsInput.value === '' ? null : Number(repsInput.value);
@@ -597,7 +783,7 @@ function renderWeek() {
 
   for (const day of DAY_KEYS) {
     const planned = template[day] || [];
-    const totalMin = schedule.blocks
+    const totalMin = allBlocks()
       .filter((b) => planned.includes(b.id))
       .reduce((sum, b) => sum + b.duration_min, 0);
 
@@ -611,7 +797,7 @@ function renderWeek() {
       <div class="chip-row wrap"></div>`;
 
     const chipRow = row.querySelector('.chip-row');
-    for (const b of schedule.blocks) {
+    for (const b of allBlocks()) {
       const selected = planned.includes(b.id);
       const chip = document.createElement('button');
       chip.className = 'chip' + (selected ? ' selected' : '');
@@ -706,6 +892,10 @@ function render() {
   }
   if (currentTab === 'week') {
     renderWeek();
+    return;
+  }
+  if (editingBlock) {
+    renderBlockEditor();
     return;
   }
   const session = loadActive();
