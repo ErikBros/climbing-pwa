@@ -5,6 +5,7 @@
 
 const LS_ACTIVE = 'ct_active_session';
 const LS_HISTORY = 'ct_history';
+const LS_OVERRIDES = 'ct_overrides'; // per-exercise user overrides: { exId: { durationSec?, restSec? } }
 
 let schedule = null;          // loaded from schedule.json
 let selectedBlockIds = [];    // picker state
@@ -28,6 +29,14 @@ function loadHistory() {
 }
 function saveHistory(h) {
   localStorage.setItem(LS_HISTORY, JSON.stringify(h));
+}
+function loadOverrides() {
+  try { return JSON.parse(localStorage.getItem(LS_OVERRIDES)) || {}; } catch { return {}; }
+}
+function saveOverride(exId, patch) {
+  const o = loadOverrides();
+  o[exId] = { ...o[exId], ...patch };
+  localStorage.setItem(LS_OVERRIDES, JSON.stringify(o));
 }
 
 /* ---------------- audio (unlocked on first touch) ---------------- */
@@ -89,6 +98,40 @@ function confirmAsk(title, body, dangerLabel, onConfirm) {
   $dialogRoot.querySelector('.danger').onclick = () => {
     $dialogRoot.innerHTML = '';
     onConfirm();
+  };
+}
+
+/* Stepper dialog for editing a duration in seconds. */
+function editSecondsDialog(title, sub, initialSec, { step, min }, onSave) {
+  let value = initialSec;
+  $dialogRoot.innerHTML = `
+    <div class="dialog-scrim">
+      <div class="dialog">
+        <h3>${title}</h3>
+        <p>${sub}</p>
+        <div class="stepper">
+          <button class="minus">−${step}</button>
+          <div class="value"></div>
+          <button class="plus">+${step}</button>
+        </div>
+        <div class="row">
+          <button class="cancel">Cancel</button>
+          <button class="save">Save</button>
+        </div>
+      </div>
+    </div>`;
+  const $value = $dialogRoot.querySelector('.value');
+  const draw = () => { $value.textContent = `${value}s`; };
+  draw();
+  $dialogRoot.querySelector('.minus').onclick = () => { value = Math.max(min, value - step); draw(); };
+  $dialogRoot.querySelector('.plus').onclick = () => { value += step; draw(); };
+  $dialogRoot.querySelector('.cancel').onclick = () => ($dialogRoot.innerHTML = '');
+  $dialogRoot.querySelector('.dialog-scrim').onclick = (e) => {
+    if (e.target === e.currentTarget) $dialogRoot.innerHTML = '';
+  };
+  $dialogRoot.querySelector('.save').onclick = () => {
+    $dialogRoot.innerHTML = '';
+    onSave(value);
   };
 }
 
@@ -178,7 +221,11 @@ function runTimedSet(ex, onComplete) {
     <div class="big-time"></div>
     <div class="ex-label">${ex.name}</div>
     <div class="controls">
+      <button class="minus">−15</button>
       <button class="pause">Pause</button>
+      <button class="plus">+15</button>
+    </div>
+    <div class="controls">
       <button class="skip">Skip</button>
       <button class="stop">Stop</button>
     </div>`;
@@ -186,6 +233,8 @@ function runTimedSet(ex, onComplete) {
 
   const close = () => { stopCountdown(); overlay.remove(); };
 
+  overlay.querySelector('.minus').onclick = () => adjustCountdown(-15);
+  overlay.querySelector('.plus').onclick = () => adjustCountdown(15);
   overlay.querySelector('.pause').onclick = (e) => {
     pauseToggleCountdown();
     e.target.textContent = countdown?.paused ? 'Resume' : 'Pause';
@@ -215,9 +264,14 @@ function startRest(sec, label) {
     <div class="rest-label">Rest — next: ${label}</div>
     <button class="minus">−15</button>
     <button class="plus">+15</button>
+    <button class="pause">⏸</button>
     <button class="skip">Skip</button>`;
   $restBanner.querySelector('.minus').onclick = () => adjustCountdown(-15);
   $restBanner.querySelector('.plus').onclick = () => adjustCountdown(15);
+  $restBanner.querySelector('.pause').onclick = (e) => {
+    pauseToggleCountdown();
+    e.target.textContent = countdown?.paused ? '▶' : '⏸';
+  };
   $restBanner.querySelector('.skip').onclick = hideRest;
 
   startCountdown([{ kind: 'rest', label: 'Rest', sec }], {
@@ -274,6 +328,7 @@ function lastLogged(exId) {
 /* ---------------- session lifecycle ---------------- */
 
 function startSession() {
+  const overrides = loadOverrides();
   const blocks = schedule.blocks
     .filter((b) => selectedBlockIds.includes(b.id))
     .map((b) => ({
@@ -281,15 +336,16 @@ function startSession() {
       name: b.name,
       exercises: b.exercises.map((ex) => {
         const last = lastLogged(ex.id);
+        const ov = overrides[ex.id] || {};
         return {
           id: ex.id,
           name: ex.name,
           metric: ex.metric,
           per_side: !!ex.per_side,
-          restSec: ex.rest_sec,
+          restSec: ov.restSec ?? ex.rest_sec,
           cue: ex.cue,
           targetReps: ex.reps ?? null,
-          durationSec: ex.duration_sec ?? null,
+          durationSec: ov.durationSec ?? ex.duration_sec ?? null,
           loadKg: last?.load ?? ex.load_kg ?? null,
           sets: Array.from({ length: ex.sets }, () => ({
             done: false,
@@ -385,6 +441,37 @@ function renderSession(session) {
         <div class="ex-name">${ex.name}</div>
         <div class="ex-target">${targetText(ex)}</div>
         <div class="ex-cue">${ex.cue}</div>`;
+
+      // Tappable timer chips — edits persist for future sessions (per-exercise override).
+      const chips = document.createElement('div');
+      chips.className = 'chip-row';
+      if (ex.metric === 'TIME') {
+        const workChip = document.createElement('button');
+        workChip.className = 'chip';
+        workChip.innerHTML = `<span class="chip-label">work</span>${ex.durationSec}s ✎`;
+        workChip.onclick = () =>
+          editSecondsDialog(ex.name, 'Work duration per set. Saved for future sessions too.', ex.durationSec, { step: 5, min: 5 }, (v) => {
+            ex.durationSec = v;
+            saveActive(session);
+            saveOverride(ex.id, { durationSec: v });
+            render();
+          });
+        chips.appendChild(workChip);
+      }
+      if (ex.restSec) {
+        const restChip = document.createElement('button');
+        restChip.className = 'chip';
+        restChip.innerHTML = `<span class="chip-label">rest</span>${ex.restSec}s ✎`;
+        restChip.onclick = () =>
+          editSecondsDialog(ex.name, 'Rest between sets. Saved for future sessions too.', ex.restSec, { step: 15, min: 15 }, (v) => {
+            ex.restSec = v;
+            saveActive(session);
+            saveOverride(ex.id, { restSec: v });
+            render();
+          });
+        chips.appendChild(restChip);
+      }
+      card.appendChild(chips);
 
       ex.sets.forEach((set, si) => {
         const row = document.createElement('div');

@@ -91,6 +91,21 @@ button { font: inherit; color: inherit; border: none; background: none; cursor: 
 .ex-target { color: var(--text-dim); font-size: 0.8rem; margin: 2px 0 4px; }
 .ex-cue { color: var(--text-dim); font-size: 0.8rem; font-style: italic; margin-bottom: 10px; }
 
+.chip-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.chip {
+  background: var(--surface2);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  color: var(--text);
+}
+.chip .chip-label { color: var(--text-dim); margin-right: 5px; }
+
+.stepper { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 18px; }
+.stepper button { background: var(--surface2); border-radius: 12px; padding: 12px 18px; font-weight: 700; font-size: 1rem; }
+.stepper .value { font-size: 1.6rem; font-weight: 800; min-width: 80px; text-align: center; font-variant-numeric: tabular-nums; }
+.dialog .row .save { background: var(--terracotta); color: #fff; }
+
 .set-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .set-label { color: var(--text-dim); font-size: 0.8rem; width: 40px; flex: none; }
 .set-row input {
@@ -126,7 +141,7 @@ button { font: inherit; color: inherit; border: none; background: none; cursor: 
 .overlay .phase-label { color: var(--text-dim); font-size: 1rem; text-transform: uppercase; letter-spacing: 0.1em; }
 .overlay .big-time { font-size: 5.5rem; font-weight: 800; font-variant-numeric: tabular-nums; }
 .overlay .ex-label { color: var(--text); font-size: 1.1rem; text-align: center; }
-.overlay .controls { display: flex; gap: 12px; }
+.overlay .controls { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
 .overlay .controls button {
   background: var(--surface); border-radius: 12px;
   padding: 14px 20px; font-size: 1rem; font-weight: 600;
