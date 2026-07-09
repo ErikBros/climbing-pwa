@@ -209,6 +209,8 @@ button.form-chips { display: inline-block; margin-bottom: 14px; }
 .overlay .controls .stop { color: var(--danger); }
 .overlay.work .big-time { color: var(--terracotta); }
 .overlay.prep .big-time { color: var(--text-dim); }
+.overlay.rest .big-time { color: var(--sage); }
+.stepper-label { color: var(--text-dim); font-size: 0.8rem; text-align: center; margin-bottom: 4px; }
 
 /* ---- rest banner ---- */
 .rest-banner {

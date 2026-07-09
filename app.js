@@ -11,6 +11,7 @@ const LS_WEEK_PLANS = 'ct_week_plans'; // per-calendar-week plans: { "2026-W28":
 const LS_CUSTOM_BLOCKS = 'ct_custom_blocks'; // user-built blocks: full block objects with copied exercises
 const LS_CUSTOM_EXERCISES = 'ct_custom_exercises'; // user-created library exercises
 const LS_HIDDEN = 'ct_hidden_blocks'; // bundled block ids hidden from the picker and week planner
+const LS_TABATA = 'ct_tabata'; // last-used tabata config: { workSec, restSec, rounds }
 
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const DAY_NAMES = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
@@ -378,6 +379,102 @@ function runTimedSet(ex, onComplete) {
   });
 }
 
+/* ---------------- tabata timer ---------------- */
+
+function loadTabataCfg() {
+  const defaults = { workSec: 20, restSec: 10, rounds: 8 };
+  try { return { ...defaults, ...(JSON.parse(localStorage.getItem(LS_TABATA)) || {}) }; }
+  catch { return defaults; }
+}
+
+function openTabataSetup() {
+  const cfg = loadTabataCfg();
+  const rows = [
+    { key: 'workSec', label: 'Work', step: 5, min: 5, unit: 's' },
+    { key: 'restSec', label: 'Rest', step: 5, min: 0, unit: 's' },
+    { key: 'rounds', label: 'Rounds', step: 1, min: 1, unit: '×' },
+  ];
+  $dialogRoot.innerHTML = `
+    <div class="dialog-scrim">
+      <div class="dialog">
+        <h3>Tabata</h3>
+        ${rows.map((r) => `
+          <p class="stepper-label">${r.label}</p>
+          <div class="stepper" data-key="${r.key}">
+            <button class="minus">−${r.step}</button>
+            <div class="value"></div>
+            <button class="plus">+${r.step}</button>
+          </div>`).join('')}
+        <div class="row">
+          <button class="cancel">Cancel</button>
+          <button class="save">Start</button>
+        </div>
+      </div>
+    </div>`;
+  const paint = () => {
+    for (const r of rows)
+      $dialogRoot.querySelector(`.stepper[data-key="${r.key}"] .value`).textContent =
+        r.unit === '×' ? `${cfg[r.key]}×` : `${cfg[r.key]}s`;
+  };
+  for (const r of rows) {
+    const st = $dialogRoot.querySelector(`.stepper[data-key="${r.key}"]`);
+    st.querySelector('.minus').onclick = () => { cfg[r.key] = Math.max(r.min, cfg[r.key] - r.step); paint(); };
+    st.querySelector('.plus').onclick = () => { cfg[r.key] += r.step; paint(); };
+  }
+  paint();
+  $dialogRoot.querySelector('.cancel').onclick = () => ($dialogRoot.innerHTML = '');
+  $dialogRoot.querySelector('.dialog-scrim').onclick = (e) => {
+    if (e.target === e.currentTarget) $dialogRoot.innerHTML = '';
+  };
+  $dialogRoot.querySelector('.save').onclick = () => {
+    $dialogRoot.innerHTML = '';
+    localStorage.setItem(LS_TABATA, JSON.stringify(cfg));
+    runTabata(cfg);
+  };
+}
+
+function runTabata(cfg) {
+  const phases = [{ kind: 'prep', label: 'Get ready', sec: 5 }];
+  for (let r = 1; r <= cfg.rounds; r++) {
+    phases.push({ kind: 'work', label: `Work · round ${r}/${cfg.rounds}`, sec: cfg.workSec });
+    if (cfg.restSec > 0 && r < cfg.rounds)
+      phases.push({ kind: 'rest', label: `Rest · round ${r}/${cfg.rounds}`, sec: cfg.restSec });
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.innerHTML = `
+    <div class="phase-label"></div>
+    <div class="big-time"></div>
+    <div class="ex-label">${cfg.workSec}s on / ${cfg.restSec}s off × ${cfg.rounds}</div>
+    <div class="controls">
+      <button class="pause">Pause</button>
+      <button class="skip">Skip</button>
+      <button class="stop">Stop</button>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('.pause').onclick = (e) => {
+    pauseToggleCountdown();
+    e.target.textContent = countdown?.paused ? 'Resume' : 'Pause';
+  };
+  overlay.querySelector('.skip').onclick = () => advancePhase();
+  overlay.querySelector('.stop').onclick = () =>
+    confirmAsk('Stop tabata?', 'Ends the timer.', 'Stop', () => { stopCountdown(); overlay.remove(); });
+
+  startCountdown(phases, {
+    render(phase, remaining) {
+      overlay.className = 'overlay ' + phase.kind;
+      overlay.querySelector('.phase-label').textContent = phase.label;
+      overlay.querySelector('.big-time').textContent = fmtTime(remaining);
+    },
+    onDone() {
+      buzz(300);
+      overlay.remove();
+    },
+  });
+}
+
 /* ---------------- rest banner ---------------- */
 
 function startRest(sec, label) {
@@ -529,6 +626,7 @@ function renderPicker() {
       : 'Pick your blocks, then start.'}</p>
     <div id="block-list"></div>
     <button class="block-card create" id="create-block-btn">＋ Create your own block</button>
+    <button class="block-card create" id="tabata-btn">⏱ Tabata timer</button>
     <div class="start-bar">
       <button class="btn-primary" id="start-btn" ${selectedBlockIds.length ? '' : 'disabled'}>
         ${selectedBlockIds.length ? `Start session · ~${total} min` : 'Select at least one block'}
@@ -603,6 +701,7 @@ function renderPicker() {
     editingBlock = { id: null, name: '', exercises: [] };
     render();
   };
+  $view.querySelector('#tabata-btn').onclick = openTabataSetup;
   $view.querySelector('#start-btn').onclick = () => {
     if (selectedBlockIds.length) startSession();
   };
