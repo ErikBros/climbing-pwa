@@ -6,7 +6,8 @@
 const LS_ACTIVE = 'ct_active_session';
 const LS_HISTORY = 'ct_history';
 const LS_OVERRIDES = 'ct_overrides'; // per-exercise user overrides: { exId: { durationSec?, restSec? } }
-const LS_TEMPLATE = 'ct_week_template'; // recurring weekday plan: { mon: [blockId, ...], ... }
+const LS_TEMPLATE = 'ct_week_template'; // legacy recurring template — migrated into LS_WEEK_PLANS on boot
+const LS_WEEK_PLANS = 'ct_week_plans'; // per-calendar-week plans: { "2026-W28": { mon: [blockId, ...], ... }, ... }
 const LS_CUSTOM_BLOCKS = 'ct_custom_blocks'; // user-built blocks: full block objects with copied exercises
 
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -44,11 +45,42 @@ function saveOverride(exId, patch) {
   o[exId] = { ...o[exId], ...patch };
   localStorage.setItem(LS_OVERRIDES, JSON.stringify(o));
 }
-function loadTemplate() {
-  try { return JSON.parse(localStorage.getItem(LS_TEMPLATE)) || {}; } catch { return {}; }
+function loadWeekPlans() {
+  try { return JSON.parse(localStorage.getItem(LS_WEEK_PLANS)) || {}; } catch { return {}; }
 }
-function saveTemplate(t) {
-  localStorage.setItem(LS_TEMPLATE, JSON.stringify(t));
+function saveWeekPlans(plans) {
+  // Prune plans older than ~8 weeks; zero-padded keys sort correctly as strings.
+  const cutoff = isoWeekKey(new Date(Date.now() - 8 * 7 * 86400000));
+  for (const key of Object.keys(plans)) if (key < cutoff) delete plans[key];
+  localStorage.setItem(LS_WEEK_PLANS, JSON.stringify(plans));
+}
+
+// ISO-8601 week key, e.g. "2026-W28" (nearest-Thursday rule).
+function isoWeekKey(d) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  t.setUTCDate(t.getUTCDate() + 3 - ((t.getUTCDay() + 6) % 7));
+  const isoYear = t.getUTCFullYear();
+  const firstThu = new Date(Date.UTC(isoYear, 0, 4));
+  firstThu.setUTCDate(firstThu.getUTCDate() + 3 - ((firstThu.getUTCDay() + 6) % 7));
+  const week = 1 + Math.round((t - firstThu) / (7 * 86400000));
+  return `${isoYear}-W${String(week).padStart(2, '0')}`;
+}
+
+// Monday of the week `offsetWeeks` from the current one, local midnight.
+function weekStart(offsetWeeks) {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7) + offsetWeeks * 7);
+}
+
+// One-time migration: the old recurring template becomes this week's plan.
+function migrateLegacyTemplate() {
+  try {
+    const old = localStorage.getItem(LS_TEMPLATE);
+    if (old && !localStorage.getItem(LS_WEEK_PLANS)) {
+      localStorage.setItem(LS_WEEK_PLANS, JSON.stringify({ [isoWeekKey(new Date())]: JSON.parse(old) }));
+    }
+    if (old) localStorage.removeItem(LS_TEMPLATE);
+  } catch {}
 }
 function loadCustomBlocks() {
   try { return JSON.parse(localStorage.getItem(LS_CUSTOM_BLOCKS)) || []; } catch { return []; }
@@ -83,9 +115,10 @@ function estimateDurationMin(exercises) {
   return Math.max(5, Math.round(sec / 60));
 }
 
-// Today's planned block ids, filtered to blocks that still exist.
+// Today's planned block ids from THIS week's plan, filtered to blocks that still exist.
 function todaysPlannedBlockIds() {
-  const planned = loadTemplate()[todayKey()] || [];
+  const plan = loadWeekPlans()[isoWeekKey(new Date())] || {};
+  const planned = plan[todayKey()] || [];
   return planned.filter((id) => allBlocks().some((b) => b.id === id));
 }
 
@@ -578,9 +611,10 @@ function renderBlockEditor() {
     $view.querySelector('#delete-block-btn').onclick = () =>
       confirmAsk('Delete block?', 'Removes it from the picker and your weekly plan. Logged history is kept.', 'Delete', () => {
         saveCustomBlocks(loadCustomBlocks().filter((b) => b.id !== eb.id));
-        const t = loadTemplate();
-        for (const day of DAY_KEYS) if (t[day]) t[day] = t[day].filter((id) => id !== eb.id);
-        saveTemplate(t);
+        const plans = loadWeekPlans();
+        for (const week of Object.values(plans))
+          for (const day of DAY_KEYS) if (week[day]) week[day] = week[day].filter((id) => id !== eb.id);
+        saveWeekPlans(plans);
         selectedBlockIds = selectedBlockIds.filter((id) => id !== eb.id);
         editingBlock = null;
         render();
@@ -775,23 +809,61 @@ function markTimedSetDone(bi, ei, si) {
 
 /* ---------------- render: week tab ---------------- */
 
+let viewWeekOffset = 0; // 0 = this week, 1 = next week
+
 function renderWeek() {
-  const template = loadTemplate();
+  const start = weekStart(viewWeekOffset);
+  const wkKey = isoWeekKey(start);
+  const plans = loadWeekPlans();
+  const plan = plans[wkKey] || {};
+  const end = new Date(start.getTime() + 6 * 86400000);
+  const fmtShort = (d) => d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  const todayStr = new Date().toDateString();
+
   $view.innerHTML = `
     <h1>Weekly plan</h1>
-    <p class="sub">Tap blocks to plan each weekday. Today's picker pre-fills from this — you can always deviate on the day.</p>`;
+    <div class="chip-row">
+      <button class="chip ${viewWeekOffset === 0 ? 'selected' : ''}" id="wk-this">This week</button>
+      <button class="chip ${viewWeekOffset === 1 ? 'selected' : ''}" id="wk-next">Next week</button>
+    </div>
+    <p class="sub">${fmtShort(start)} – ${fmtShort(end)} · plan each day; the picker pre-fills from this on the day.</p>
+    <div id="copy-slot"></div>`;
 
-  for (const day of DAY_KEYS) {
-    const planned = template[day] || [];
+  $view.querySelector('#wk-this').onclick = () => { viewWeekOffset = 0; render(); };
+  $view.querySelector('#wk-next').onclick = () => { viewWeekOffset = 1; render(); };
+
+  // Empty week + previous week has content → offer one-tap copy.
+  const prevPlan = plans[isoWeekKey(new Date(start.getTime() - 7 * 86400000))];
+  const isEmpty = !DAY_KEYS.some((d) => (plan[d] || []).length);
+  const prevHasContent = prevPlan && DAY_KEYS.some((d) => (prevPlan[d] || []).length);
+  if (isEmpty && prevHasContent) {
+    const btn = document.createElement('button');
+    btn.className = 'block-card create';
+    btn.textContent = '⧉ Copy last week’s plan';
+    btn.onclick = () => {
+      const p = loadWeekPlans();
+      p[wkKey] = JSON.parse(JSON.stringify(prevPlan));
+      saveWeekPlans(p);
+      if (!loadActive()) selectedBlockIds = todaysPlannedBlockIds();
+      render();
+    };
+    $view.querySelector('#copy-slot').appendChild(btn);
+  }
+
+  DAY_KEYS.forEach((day, i) => {
+    const date = new Date(start.getTime() + i * 86400000);
+    const isToday = date.toDateString() === todayStr;
+    const isPast = !isToday && date < new Date();
+    const planned = plan[day] || [];
     const totalMin = allBlocks()
       .filter((b) => planned.includes(b.id))
       .reduce((sum, b) => sum + b.duration_min, 0);
 
     const row = document.createElement('div');
-    row.className = 'day-row' + (day === todayKey() ? ' today' : '');
+    row.className = 'day-row' + (isToday ? ' today' : '') + (isPast ? ' past' : '');
     row.innerHTML = `
       <div class="day-head">
-        <span class="day-name">${DAY_NAMES[day]}${day === todayKey() ? ' · today' : ''}</span>
+        <span class="day-name">${DAY_NAMES[day]} · ${fmtShort(date)}${isToday ? ' · today' : ''}</span>
         <span class="day-total">${totalMin ? `~${totalMin} min` : 'rest'}</span>
       </div>
       <div class="chip-row wrap"></div>`;
@@ -803,17 +875,18 @@ function renderWeek() {
       chip.className = 'chip' + (selected ? ' selected' : '');
       chip.textContent = b.name;
       chip.onclick = () => {
-        const t = loadTemplate();
-        const cur = t[day] || [];
-        t[day] = selected ? cur.filter((id) => id !== b.id) : [...cur, b.id];
-        saveTemplate(t);
-        if (day === todayKey() && !loadActive()) selectedBlockIds = todaysPlannedBlockIds();
+        const p = loadWeekPlans();
+        const week = p[wkKey] || (p[wkKey] = {});
+        const cur = week[day] || [];
+        week[day] = selected ? cur.filter((id) => id !== b.id) : [...cur, b.id];
+        saveWeekPlans(p);
+        if (isToday && !loadActive()) selectedBlockIds = todaysPlannedBlockIds();
         render();
       };
       chipRow.appendChild(chip);
     }
     $view.appendChild(row);
-  }
+  });
 }
 
 /* ---------------- render: history tab ---------------- */
@@ -915,7 +988,8 @@ fetch('schedule.json')
   .then((r) => r.json())
   .then((data) => {
     schedule = data;
-    if (!loadActive()) selectedBlockIds = todaysPlannedBlockIds(); // seed picker from weekly plan
+    migrateLegacyTemplate();
+    if (!loadActive()) selectedBlockIds = todaysPlannedBlockIds(); // seed picker from this week's plan
     render();
   })
   .catch(() => {

@@ -126,6 +126,7 @@ button { font: inherit; color: inherit; border: none; background: none; cursor: 
   margin-bottom: 10px;
 }
 .day-row.today { border-color: var(--terracotta-dim); }
+.day-row.past { opacity: 0.55; }
 .day-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
 .day-name { font-weight: 600; }
 .day-total { color: var(--text-dim); font-size: 0.8rem; }
