@@ -111,9 +111,13 @@ function visibleBlocks() {
   const hidden = loadHidden();
   return allBlocks().filter((b) => !hidden.includes(b.id));
 }
-function hideBlock(id) {
-  saveHidden([...new Set([...loadHidden(), id])]);
-  // A hidden block shouldn't linger in plans or the current selection.
+function deleteBlock(id) {
+  // Custom blocks (and shadow copies of edited bundled ones) are destroyed outright.
+  // Bundled blocks ship inside the app, so "delete" tombstones them in LS_HIDDEN;
+  // the picker's "Restore standard blocks" button clears the tombstones.
+  saveCustomBlocks(loadCustomBlocks().filter((b) => b.id !== id));
+  if (isBundledId(id)) saveHidden([...new Set([...loadHidden(), id])]);
+  // A deleted block shouldn't linger in plans or the current selection.
   const plans = loadWeekPlans();
   for (const week of Object.values(plans))
     for (const day of DAY_KEYS) if (week[day]) week[day] = week[day].filter((b) => b !== id);
@@ -504,7 +508,6 @@ function discardSession() {
 /* ---------------- render: train tab ---------------- */
 
 const expandedBlocks = new Set();
-let showHiddenList = false;
 
 function renderPicker() {
   const total = allBlocks()
@@ -564,41 +567,29 @@ function renderPicker() {
       detail.innerHTML = b.exercises
         .map((ex) => `<div class="detail-line"><b>${ex.name}</b> — ${targetText(ex)}</div>`)
         .join('');
-      const hideBtn = document.createElement('button');
-      hideBtn.className = 'btn-ghost detail-hide';
-      hideBtn.textContent = 'Hide this block';
-      hideBtn.onclick = () => {
-        hideBlock(b.id);
-        expandedBlocks.delete(b.id);
-        render();
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-ghost detail-hide danger';
+      delBtn.textContent = 'Delete this block';
+      delBtn.onclick = () => {
+        confirmAsk('Delete block?', 'Removes it from the picker and your weekly plan. Logged history is kept.', 'Delete', () => {
+          deleteBlock(b.id);
+          expandedBlocks.delete(b.id);
+          render();
+        });
       };
-      detail.appendChild(hideBtn);
+      detail.appendChild(delBtn);
       list.appendChild(detail);
     }
   }
 
-  // Hidden blocks live in a collapsed row at the bottom; unhide restores them.
-  const hidden = loadHidden().map((id) => allBlocks().find((b) => b.id === id)).filter(Boolean);
-  if (hidden.length) {
-    const section = document.createElement('div');
-    section.className = 'hidden-section';
-    section.innerHTML = `<button class="btn-ghost" id="hidden-toggle">${showHiddenList ? '▾' : '▸'} Hidden blocks (${hidden.length})</button>`;
-    section.querySelector('#hidden-toggle').onclick = () => { showHiddenList = !showHiddenList; render(); };
-    if (showHiddenList) {
-      for (const b of hidden) {
-        const row = document.createElement('div');
-        row.className = 'block-card hidden-row';
-        row.innerHTML = `
-          <span class="meta"><span class="name">${b.name}</span></span>
-          <button class="btn-ghost unhide">Show</button>`;
-        row.querySelector('.unhide').onclick = () => {
-          saveHidden(loadHidden().filter((id) => id !== b.id));
-          render();
-        };
-        section.appendChild(row);
-      }
-    }
-    list.appendChild(section);
+  // Deleted standard blocks are gone from the list entirely; one button brings them all back.
+  const deletedDefaults = loadHidden().filter((id) => isBundledId(id));
+  if (deletedDefaults.length) {
+    const restore = document.createElement('button');
+    restore.className = 'btn-ghost restore-defaults';
+    restore.textContent = `Restore standard blocks (${deletedDefaults.length})`;
+    restore.onclick = () => { saveHidden([]); render(); };
+    list.appendChild(restore);
   }
 
   $view.querySelector('#create-block-btn').onclick = () => {
@@ -620,18 +611,17 @@ function renderBlockEditor() {
   const estMin = eb.exercises.length ? estimateDurationMin(eb.exercises) : 0;
   const bundled = eb.id && isBundledId(eb.id);
   const hasShadow = eb.id && loadCustomBlocks().some((b) => b.id === eb.id);
-  // Bundled block: "Revert" (drop the personal copy) once one exists. Custom block: "Delete".
-  const dangerLabel = bundled ? (hasShadow ? 'Revert' : null) : (eb.id ? 'Delete' : null);
 
   $view.innerHTML = `
     <div class="session-head">
       <h1>${eb.id ? 'Edit block' : 'New block'}</h1>
       <div>
-        ${dangerLabel ? `<button class="btn-ghost danger" id="delete-block-btn">${dangerLabel}</button>` : ''}
+        ${bundled && hasShadow ? '<button class="btn-ghost" id="revert-block-btn">Revert</button>' : ''}
+        ${eb.id ? '<button class="btn-ghost danger" id="delete-block-btn">Delete</button>' : ''}
         <button class="btn-ghost" id="cancel-edit-btn">Cancel</button>
       </div>
     </div>
-    ${bundled ? '<p class="sub">Built-in block — saving stores your personal version; Revert restores the original.</p>' : ''}
+    ${bundled ? `<p class="sub">Standard block — saving stores your personal version${hasShadow ? '; Revert restores the original' : ''}. Deleted standard blocks come back via “Restore standard blocks” in the picker.</p>` : ''}
     <input class="name-input" id="block-name" type="text" placeholder="Block name (e.g. My Core)" value="${eb.name.replace(/"/g, '&quot;')}">
     <p class="sub">Tap exercises to add them — tapping order = block order.</p>
     <div id="lib-list"></div>
@@ -673,21 +663,17 @@ function renderBlockEditor() {
   }
 
   $view.querySelector('#cancel-edit-btn').onclick = () => { editingBlock = null; render(); };
-  if (dangerLabel === 'Delete') {
+  if (eb.id) {
     $view.querySelector('#delete-block-btn').onclick = () =>
       confirmAsk('Delete block?', 'Removes it from the picker and your weekly plan. Logged history is kept.', 'Delete', () => {
-        saveCustomBlocks(loadCustomBlocks().filter((b) => b.id !== eb.id));
-        const plans = loadWeekPlans();
-        for (const week of Object.values(plans))
-          for (const day of DAY_KEYS) if (week[day]) week[day] = week[day].filter((id) => id !== eb.id);
-        saveWeekPlans(plans);
-        selectedBlockIds = selectedBlockIds.filter((id) => id !== eb.id);
+        deleteBlock(eb.id);
         editingBlock = null;
         render();
       });
-  } else if (dangerLabel === 'Revert') {
+  }
+  if (bundled && hasShadow) {
     // Restores the bundled original; the block stays in plans and the picker.
-    $view.querySelector('#delete-block-btn').onclick = () =>
+    $view.querySelector('#revert-block-btn').onclick = () =>
       confirmAsk('Revert block?', 'Discards your personal version and restores the built-in one.', 'Revert', () => {
         saveCustomBlocks(loadCustomBlocks().filter((b) => b.id !== eb.id));
         editingBlock = null;
