@@ -130,6 +130,7 @@ button.form-chips { display: inline-block; margin-bottom: 14px; }
   margin-bottom: 10px;
 }
 .ex-name { font-weight: 600; }
+.yt-link { color: var(--terracotta); font-size: 0.75rem; text-decoration: none; margin-left: 4px; white-space: nowrap; }
 .ex-target { color: var(--text-dim); font-size: 0.8rem; margin: 2px 0 4px; }
 .ex-cue { color: var(--text-dim); font-size: 0.8rem; font-style: italic; margin-bottom: 10px; }
 

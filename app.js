@@ -521,6 +521,12 @@ function fmtDate(iso) {
   });
 }
 
+// YouTube search-results page for the exercise name — a landing page of options, never one specific video.
+function ytSearchLink(name) {
+  const href = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(name);
+  return `<a class="yt-link" href="${href}" target="_blank" rel="noopener">▶ video</a>`;
+}
+
 function targetText(ex) {
   // Tolerates both shapes: plan exercises (sets count, duration_sec, load_kg, reps)
   // and session exercises (sets array, durationSec, loadKg, targetReps).
@@ -667,7 +673,7 @@ function renderPicker() {
       const detail = document.createElement('div');
       detail.className = 'block-detail';
       detail.innerHTML = b.exercises
-        .map((ex) => `<div class="detail-line"><b>${ex.name}</b> — ${targetText(ex)}</div>`)
+        .map((ex) => `<div class="detail-line"><b>${ex.name}</b> — ${targetText(ex)} ${ytSearchLink(ex.name)}</div>`)
         .join('');
       const delBtn = document.createElement('button');
       delBtn.className = 'btn-ghost detail-hide danger';
@@ -932,7 +938,7 @@ function renderSession(session) {
       const card = document.createElement('div');
       card.className = 'ex-card';
       card.innerHTML = `
-        <div class="ex-name">${ex.name}</div>
+        <div class="ex-name">${ex.name} ${ytSearchLink(ex.name)}</div>
         <div class="ex-target">${targetText(ex)}</div>
         <div class="ex-cue">${ex.cue}</div>`;
 
