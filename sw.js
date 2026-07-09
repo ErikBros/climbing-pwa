@@ -1,5 +1,5 @@
 /* Cache-first service worker. Bump CACHE_VERSION on every deploy that changes files. */
-const CACHE_VERSION = 'ct-v1.11.0';
+const CACHE_VERSION = 'ct-v1.11.1';
 const PRECACHE = [
   './',
   './index.html',

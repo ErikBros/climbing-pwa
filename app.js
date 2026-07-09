@@ -387,50 +387,48 @@ function loadTabataCfg() {
   catch { return defaults; }
 }
 
-function openTabataSetup() {
+function renderTimer() {
   const cfg = loadTabataCfg();
   const rows = [
     { key: 'workSec', label: 'Work', step: 5, min: 5, unit: 's' },
     { key: 'restSec', label: 'Rest', step: 5, min: 0, unit: 's' },
     { key: 'rounds', label: 'Rounds', step: 1, min: 1, unit: '×' },
   ];
-  $dialogRoot.innerHTML = `
-    <div class="dialog-scrim">
-      <div class="dialog">
-        <h3>Tabata</h3>
-        ${rows.map((r) => `
-          <p class="stepper-label">${r.label}</p>
-          <div class="stepper" data-key="${r.key}">
-            <button class="minus">−${r.step}</button>
-            <div class="value"></div>
-            <button class="plus">+${r.step}</button>
-          </div>`).join('')}
-        <div class="row">
-          <button class="cancel">Cancel</button>
-          <button class="save">Start</button>
-        </div>
-      </div>
+  const totalMin = () => Math.round((5 + cfg.rounds * cfg.workSec + Math.max(0, cfg.rounds - 1) * cfg.restSec) / 60 * 10) / 10;
+  $view.innerHTML = `
+    <h1>Tabata</h1>
+    <p class="sub">Interval timer — work / rest × rounds. Beeps and buzzes carry you through; no logging.</p>
+    ${rows.map((r) => `
+      <p class="stepper-label">${r.label}</p>
+      <div class="stepper" data-key="${r.key}">
+        <button class="minus">−${r.step}</button>
+        <div class="value"></div>
+        <button class="plus">+${r.step}</button>
+      </div>`).join('')}
+    <div class="start-bar">
+      <button class="btn-primary" id="start-tabata-btn"></button>
     </div>`;
   const paint = () => {
     for (const r of rows)
-      $dialogRoot.querySelector(`.stepper[data-key="${r.key}"] .value`).textContent =
+      $view.querySelector(`.stepper[data-key="${r.key}"] .value`).textContent =
         r.unit === '×' ? `${cfg[r.key]}×` : `${cfg[r.key]}s`;
+    $view.querySelector('#start-tabata-btn').textContent = `Start · ~${totalMin()} min`;
   };
   for (const r of rows) {
-    const st = $dialogRoot.querySelector(`.stepper[data-key="${r.key}"]`);
-    st.querySelector('.minus').onclick = () => { cfg[r.key] = Math.max(r.min, cfg[r.key] - r.step); paint(); };
-    st.querySelector('.plus').onclick = () => { cfg[r.key] += r.step; paint(); };
+    const st = $view.querySelector(`.stepper[data-key="${r.key}"]`);
+    st.querySelector('.minus').onclick = () => {
+      cfg[r.key] = Math.max(r.min, cfg[r.key] - r.step);
+      localStorage.setItem(LS_TABATA, JSON.stringify(cfg));
+      paint();
+    };
+    st.querySelector('.plus').onclick = () => {
+      cfg[r.key] += r.step;
+      localStorage.setItem(LS_TABATA, JSON.stringify(cfg));
+      paint();
+    };
   }
   paint();
-  $dialogRoot.querySelector('.cancel').onclick = () => ($dialogRoot.innerHTML = '');
-  $dialogRoot.querySelector('.dialog-scrim').onclick = (e) => {
-    if (e.target === e.currentTarget) $dialogRoot.innerHTML = '';
-  };
-  $dialogRoot.querySelector('.save').onclick = () => {
-    $dialogRoot.innerHTML = '';
-    localStorage.setItem(LS_TABATA, JSON.stringify(cfg));
-    runTabata(cfg);
-  };
+  $view.querySelector('#start-tabata-btn').onclick = () => runTabata(cfg);
 }
 
 function runTabata(cfg) {
@@ -626,7 +624,6 @@ function renderPicker() {
       : 'Pick your blocks, then start.'}</p>
     <div id="block-list"></div>
     <button class="block-card create" id="create-block-btn">＋ Create your own block</button>
-    <button class="block-card create" id="tabata-btn">⏱ Tabata timer</button>
     <div class="start-bar">
       <button class="btn-primary" id="start-btn" ${selectedBlockIds.length ? '' : 'disabled'}>
         ${selectedBlockIds.length ? `Start session · ~${total} min` : 'Select at least one block'}
@@ -701,7 +698,6 @@ function renderPicker() {
     editingBlock = { id: null, name: '', exercises: [] };
     render();
   };
-  $view.querySelector('#tabata-btn').onclick = openTabataSetup;
   $view.querySelector('#start-btn').onclick = () => {
     if (selectedBlockIds.length) startSession();
   };
@@ -1290,6 +1286,10 @@ function render() {
   }
   if (currentTab === 'week') {
     renderWeek();
+    return;
+  }
+  if (currentTab === 'timer') {
+    renderTimer();
     return;
   }
   if (editingExercise) {
