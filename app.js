@@ -90,7 +90,16 @@ function saveCustomBlocks(blocks) {
   localStorage.setItem(LS_CUSTOM_BLOCKS, JSON.stringify(blocks));
 }
 function allBlocks() {
-  return [...schedule.blocks, ...loadCustomBlocks()];
+  // Custom entries with a bundled id shadow (replace) the bundled block in place;
+  // genuinely new custom blocks append at the end.
+  const custom = loadCustomBlocks();
+  const byId = new Map(custom.map((b) => [b.id, b]));
+  const merged = schedule.blocks.map((b) => byId.get(b.id) || b);
+  const extras = custom.filter((b) => !schedule.blocks.some((s) => s.id === b.id));
+  return [...merged, ...extras];
+}
+function isBundledId(id) {
+  return schedule.blocks.some((b) => b.id === id);
 }
 function loadHidden() {
   try { return JSON.parse(localStorage.getItem(LS_HIDDEN)) || []; } catch { return []; }
@@ -528,7 +537,7 @@ function renderPicker() {
         <span class="name">${b.name}</span><br>
         <span class="detail">~${b.duration_min} min · ${b.exercises.length} exercises</span>
       </span>
-      ${b.custom ? '<button class="icon-btn edit">✎</button>' : ''}
+      <button class="icon-btn edit">✎</button>
       <button class="icon-btn expand">${expanded ? '▾' : '▸'}</button>`;
 
     card.onclick = () => {
@@ -542,13 +551,11 @@ function renderPicker() {
       expanded ? expandedBlocks.delete(b.id) : expandedBlocks.add(b.id);
       render();
     };
-    if (b.custom) {
-      card.querySelector('.edit').onclick = (e) => {
-        e.stopPropagation();
-        editingBlock = { id: b.id, name: b.name, exercises: JSON.parse(JSON.stringify(b.exercises)) };
-        render();
-      };
-    }
+    card.querySelector('.edit').onclick = (e) => {
+      e.stopPropagation();
+      editingBlock = { id: b.id, name: b.name, exercises: JSON.parse(JSON.stringify(b.exercises)) };
+      render();
+    };
     list.appendChild(card);
 
     if (expanded) {
@@ -557,17 +564,15 @@ function renderPicker() {
       detail.innerHTML = b.exercises
         .map((ex) => `<div class="detail-line"><b>${ex.name}</b> — ${targetText(ex)}</div>`)
         .join('');
-      if (!b.custom) {
-        const hideBtn = document.createElement('button');
-        hideBtn.className = 'btn-ghost detail-hide';
-        hideBtn.textContent = 'Hide this block';
-        hideBtn.onclick = () => {
-          hideBlock(b.id);
-          expandedBlocks.delete(b.id);
-          render();
-        };
-        detail.appendChild(hideBtn);
-      }
+      const hideBtn = document.createElement('button');
+      hideBtn.className = 'btn-ghost detail-hide';
+      hideBtn.textContent = 'Hide this block';
+      hideBtn.onclick = () => {
+        hideBlock(b.id);
+        expandedBlocks.delete(b.id);
+        render();
+      };
+      detail.appendChild(hideBtn);
       list.appendChild(detail);
     }
   }
@@ -613,15 +618,20 @@ function renderBlockEditor() {
   const eb = editingBlock;
   const chosen = new Set(eb.exercises.map((ex) => ex.id));
   const estMin = eb.exercises.length ? estimateDurationMin(eb.exercises) : 0;
+  const bundled = eb.id && isBundledId(eb.id);
+  const hasShadow = eb.id && loadCustomBlocks().some((b) => b.id === eb.id);
+  // Bundled block: "Revert" (drop the personal copy) once one exists. Custom block: "Delete".
+  const dangerLabel = bundled ? (hasShadow ? 'Revert' : null) : (eb.id ? 'Delete' : null);
 
   $view.innerHTML = `
     <div class="session-head">
       <h1>${eb.id ? 'Edit block' : 'New block'}</h1>
       <div>
-        ${eb.id ? '<button class="btn-ghost danger" id="delete-block-btn">Delete</button>' : ''}
+        ${dangerLabel ? `<button class="btn-ghost danger" id="delete-block-btn">${dangerLabel}</button>` : ''}
         <button class="btn-ghost" id="cancel-edit-btn">Cancel</button>
       </div>
     </div>
+    ${bundled ? '<p class="sub">Built-in block — saving stores your personal version; Revert restores the original.</p>' : ''}
     <input class="name-input" id="block-name" type="text" placeholder="Block name (e.g. My Core)" value="${eb.name.replace(/"/g, '&quot;')}">
     <p class="sub">Tap exercises to add them — tapping order = block order.</p>
     <div id="lib-list"></div>
@@ -663,7 +673,7 @@ function renderBlockEditor() {
   }
 
   $view.querySelector('#cancel-edit-btn').onclick = () => { editingBlock = null; render(); };
-  if (eb.id) {
+  if (dangerLabel === 'Delete') {
     $view.querySelector('#delete-block-btn').onclick = () =>
       confirmAsk('Delete block?', 'Removes it from the picker and your weekly plan. Logged history is kept.', 'Delete', () => {
         saveCustomBlocks(loadCustomBlocks().filter((b) => b.id !== eb.id));
@@ -672,6 +682,14 @@ function renderBlockEditor() {
           for (const day of DAY_KEYS) if (week[day]) week[day] = week[day].filter((id) => id !== eb.id);
         saveWeekPlans(plans);
         selectedBlockIds = selectedBlockIds.filter((id) => id !== eb.id);
+        editingBlock = null;
+        render();
+      });
+  } else if (dangerLabel === 'Revert') {
+    // Restores the bundled original; the block stays in plans and the picker.
+    $view.querySelector('#delete-block-btn').onclick = () =>
+      confirmAsk('Revert block?', 'Discards your personal version and restores the built-in one.', 'Revert', () => {
+        saveCustomBlocks(loadCustomBlocks().filter((b) => b.id !== eb.id));
         editingBlock = null;
         render();
       });
