@@ -591,6 +591,7 @@ function startSession() {
     }));
   saveActive({ startedAt: new Date().toISOString(), blocks });
   selectedBlockIds = [];
+  sessionMinimized = false;
   render();
 }
 
@@ -616,6 +617,7 @@ function discardSession() {
 /* ---------------- render: train tab ---------------- */
 
 const expandedBlocks = new Set();
+let sessionMinimized = false; // ✕ on the session view drops back to the picker; the session stays active
 
 function renderPicker() {
   const total = allBlocks()
@@ -623,8 +625,10 @@ function renderPicker() {
     .reduce((sum, b) => sum + b.duration_min, 0);
 
   const plannedToday = todaysPlannedBlockIds();
+  const activeSession = loadActive();
   $view.innerHTML = `
     <h1>Today</h1>
+    ${activeSession ? '<button class="resume-card" id="resume-btn">▶ Session in progress — tap to resume</button>' : ''}
     <p class="sub">${plannedToday.length
       ? `Pre-filled from your weekly plan (${DAY_NAMES[todayKey()]}) — adjust freely.`
       : 'Pick your blocks, then start.'}</p>
@@ -704,8 +708,20 @@ function renderPicker() {
     editingBlock = { id: null, name: '', exercises: [] };
     render();
   };
+  if (activeSession) {
+    $view.querySelector('#resume-btn').onclick = () => {
+      sessionMinimized = false;
+      render();
+    };
+  }
   $view.querySelector('#start-btn').onclick = () => {
-    if (selectedBlockIds.length) startSession();
+    if (!selectedBlockIds.length) return;
+    if (loadActive()) {
+      confirmAsk('Start a new session?', 'Your session in progress will be discarded.', 'Start new', () => {
+        saveActive(null);
+        startSession();
+      });
+    } else startSession();
   };
 }
 
@@ -926,6 +942,7 @@ function renderSession(session) {
       <div>
         <button class="btn-ghost danger" id="discard-btn">Discard</button>
         <button class="btn-ghost" id="finish-btn">Finish</button>
+        <button class="btn-ghost" id="minimize-btn" aria-label="Back to blocks">✕</button>
       </div>
     </div>`;
 
@@ -1075,6 +1092,10 @@ function renderSession(session) {
     confirmAsk('Discard session?', 'Deletes everything logged in this session.', 'Discard', discardSession);
   $view.querySelector('#finish-btn').onclick = () =>
     confirmAsk('Finish session?', 'Saves the session to history.', 'Finish', finishSession);
+  $view.querySelector('#minimize-btn').onclick = () => {
+    sessionMinimized = true;
+    render();
+  };
 }
 
 function toggleSetDone(bi, ei, si) {
@@ -1307,7 +1328,7 @@ function render() {
     return;
   }
   const session = loadActive();
-  if (session) renderSession(session);
+  if (session && !sessionMinimized) renderSession(session);
   else renderPicker();
 }
 
