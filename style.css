@@ -12,7 +12,7 @@
   --nav-h: 58px;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
 
 html, body {
   background: var(--bg);
