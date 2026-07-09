@@ -598,6 +598,8 @@ function fmtDate(iso) {
   });
 }
 
+const musclePill = (ex) => (ex.muscles ? `<span class="muscle-tag">${ex.muscles}</span>` : '');
+
 // YouTube search-results page for the exercise name — a landing page of options, never one specific video.
 function ytSearchLink(name) {
   const href = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(name);
@@ -655,6 +657,7 @@ function startSession() {
           per_side: !!ex.per_side,
           restSec: ov.restSec ?? ex.rest_sec,
           cue: ex.cue,
+          muscles: ex.muscles ?? null,
           targetReps: ex.reps ?? null,
           durationSec: ov.durationSec ?? ex.duration_sec ?? null,
           loadKg: last?.load ?? ex.load_kg ?? null,
@@ -754,7 +757,7 @@ function renderPicker() {
       const detail = document.createElement('div');
       detail.className = 'block-detail';
       detail.innerHTML = b.exercises
-        .map((ex) => `<div class="detail-line"><b>${ex.name}</b> — ${targetText(ex)} ${ytSearchLink(ex.name)}</div>`)
+        .map((ex) => `<div class="detail-line"><b>${ex.name}</b> ${musclePill(ex)} — ${targetText(ex)} ${ytSearchLink(ex.name)}</div>`)
         .join('');
       const delBtn = document.createElement('button');
       delBtn.className = 'btn-ghost detail-hide danger';
@@ -844,7 +847,7 @@ function renderBlockEditor() {
     editingExercise = {
       id: null, name: '', category: Object.keys(schedule.categories || {})[0] || 'pull',
       metric: 'REPS', sets: 3, reps: '8', duration_sec: 30, load_kg: 0, rest_sec: 60,
-      per_side: false, cue: '',
+      per_side: false, cue: '', muscles: '',
     };
     render();
   };
@@ -860,7 +863,7 @@ function renderBlockEditor() {
       row.innerHTML = `
         <span class="tick">${isChosen ? '✓' : ''}</span>
         <span class="meta">
-          <span class="name">${ex.name}</span><br>
+          <span class="name">${ex.name}</span> ${musclePill(ex)}<br>
           <span class="detail">${targetText(ex)}${ex.cue ? ' · ' + ex.cue : ''}</span>
         </span>
         ${ex.custom ? '<button class="icon-btn edit-ex">✎</button>' : ''}`;
@@ -953,6 +956,7 @@ function renderExerciseForm() {
       <label>Rest (s)<input id="ex-rest" type="number" min="0" step="15" inputmode="numeric" value="${ex.rest_sec}"></label>
     </div>
     <button class="chip form-chips ${ex.per_side ? 'selected' : ''}" id="ex-per-side">Per side</button>
+    <input class="name-input" id="ex-muscles" type="text" placeholder="Muscles (optional) — e.g. Shoulders & scapula" value="${(ex.muscles || '').replace(/"/g, '&quot;')}">
     <input class="name-input" id="ex-cue" type="text" placeholder="Cue (optional) — e.g. slow on the way down" value="${(ex.cue || '').replace(/"/g, '&quot;')}">
     <div class="start-bar">
       <button class="btn-primary" id="save-ex-btn" ${exerciseDraftValid(ex) ? '' : 'disabled'}>Save exercise</button>
@@ -970,6 +974,7 @@ function renderExerciseForm() {
   bind('#ex-reps', (v) => { ex.reps = v; });
   bind('#ex-load', (v) => { ex.load_kg = v; });
   bind('#ex-rest', (v) => { ex.rest_sec = v; });
+  bind('#ex-muscles', (v) => { ex.muscles = v; });
   bind('#ex-cue', (v) => { ex.cue = v; });
   for (const chip of $view.querySelectorAll('#ex-cat .chip'))
     chip.onclick = () => { ex.category = chip.dataset.cat; render(); };
@@ -998,6 +1003,7 @@ function renderExerciseForm() {
       cue: (ex.cue || '').trim(),
       custom: true,
     };
+    if ((ex.muscles || '').trim()) clean.muscles = ex.muscles.trim();
     if (ex.metric === 'TIME') clean.duration_sec = Math.max(5, parseInt(ex.duration_sec, 10) || 30);
     else clean.reps = String(ex.reps).trim();
     if (ex.metric === 'REPS_LOAD') clean.load_kg = Math.max(0, parseFloat(ex.load_kg) || 0);
@@ -1032,7 +1038,7 @@ function renderSession(session) {
       const card = document.createElement('div');
       card.className = 'ex-card';
       card.innerHTML = `
-        <div class="ex-name">${ex.name} ${ytSearchLink(ex.name)}</div>
+        <div class="ex-name">${ex.name} ${musclePill(ex)} ${ytSearchLink(ex.name)}</div>
         <div class="ex-target">${targetText(ex)}</div>
         <div class="ex-cue">${ex.cue}</div>`;
 

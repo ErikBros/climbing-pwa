@@ -1,5 +1,5 @@
 {
-  "version": "1.3.0",
+  "version": "1.4.0",
   "title": "Beta",
   "notes": "Block library for a V4+/6b+ climber. Gym equipment only. No finger-strength work by design — fingers get trained on the wall.",
   "categories": {
@@ -25,7 +25,8 @@
           "sets": 2,
           "reps": "5",
           "rest_sec": 60,
-          "cue": "Dead hang, arms straight. Pull shoulder blades down and together, hold 1s, release."
+          "cue": "Dead hang, arms straight. Pull shoulder blades down and together, hold 1s, release.",
+          "muscles": "Scapula & lats"
         },
         {
           "id": "pullups",
@@ -36,7 +37,8 @@
           "reps": "5-8",
           "load_kg": 0,
           "rest_sec": 150,
-          "cue": "Full range, chest toward bar. Add weight once 8 clean reps feel easy (0 kg = bodyweight)."
+          "cue": "Full range, chest toward bar. Add weight once 8 clean reps feel easy (0 kg = bodyweight).",
+          "muscles": "Lats & biceps"
         },
         {
           "id": "ring_rows",
@@ -46,7 +48,8 @@
           "sets": 3,
           "reps": "8-12",
           "rest_sec": 90,
-          "cue": "Body in one line, pull rings to chest. Walk feet forward to make it harder."
+          "cue": "Body in one line, pull rings to chest. Walk feet forward to make it harder.",
+          "muscles": "Upper back & biceps"
         }
       ]
     },
@@ -63,7 +66,8 @@
           "sets": 2,
           "reps": "15",
           "rest_sec": 30,
-          "cue": "Arms straight at shoulder height, squeeze shoulder blades together."
+          "cue": "Arms straight at shoulder height, squeeze shoulder blades together.",
+          "muscles": "Rear shoulders & upper back"
         },
         {
           "id": "db_ohp",
@@ -74,7 +78,8 @@
           "reps": "6-10",
           "load_kg": 8,
           "rest_sec": 120,
-          "cue": "Press straight overhead without arching the lower back. Per-hand weight."
+          "cue": "Press straight overhead without arching the lower back. Per-hand weight.",
+          "muscles": "Shoulders & triceps"
         },
         {
           "id": "dips_pushups",
@@ -84,7 +89,8 @@
           "sets": 3,
           "reps": "8-12",
           "rest_sec": 90,
-          "cue": "Dips if shoulders are happy, otherwise push-ups. Full depth, controlled down."
+          "cue": "Dips if shoulders are happy, otherwise push-ups. Full depth, controlled down.",
+          "muscles": "Chest, triceps & shoulders"
         },
         {
           "id": "face_pulls",
@@ -94,7 +100,8 @@
           "sets": 2,
           "reps": "12-15",
           "rest_sec": 60,
-          "cue": "Cable or band at face height. Pull toward ears, thumbs pointing back."
+          "cue": "Cable or band at face height. Pull toward ears, thumbs pointing back.",
+          "muscles": "Rear shoulders & rotator cuff"
         }
       ]
     },
@@ -111,7 +118,8 @@
           "sets": 3,
           "reps": "8-12",
           "rest_sec": 90,
-          "cue": "No swing. Knees to chest to start; straighten the legs as it gets easy."
+          "cue": "No swing. Knees to chest to start; straighten the legs as it gets easy.",
+          "muscles": "Abs & hip flexors"
         },
         {
           "id": "hollow_rock",
@@ -121,7 +129,8 @@
           "sets": 3,
           "duration_sec": 25,
           "rest_sec": 60,
-          "cue": "Lower back pressed into the floor. Shrink the shape if the back pops up."
+          "cue": "Lower back pressed into the floor. Shrink the shape if the back pops up.",
+          "muscles": "Deep abs"
         },
         {
           "id": "pallof_press",
@@ -132,7 +141,8 @@
           "reps": "10",
           "per_side": true,
           "rest_sec": 60,
-          "cue": "Cable/band at chest height, stand side-on. Press out slowly, resist the rotation."
+          "cue": "Cable/band at chest height, stand side-on. Press out slowly, resist the rotation.",
+          "muscles": "Obliques (anti-rotation)"
         }
       ]
     },
@@ -150,7 +160,8 @@
           "reps": "8",
           "per_side": true,
           "rest_sec": 30,
-          "cue": "Sit tall, rotate both knees side to side without using hands."
+          "cue": "Sit tall, rotate both knees side to side without using hands.",
+          "muscles": "Hip rotators"
         },
         {
           "id": "deep_squat_hold",
@@ -160,7 +171,8 @@
           "sets": 3,
           "duration_sec": 30,
           "rest_sec": 45,
-          "cue": "Heels down, chest up. Hold a post for balance if needed."
+          "cue": "Heels down, chest up. Hold a post for balance if needed.",
+          "muscles": "Hips & ankles"
         },
         {
           "id": "elephant_walks",
@@ -171,7 +183,8 @@
           "reps": "10",
           "per_side": true,
           "rest_sec": 30,
-          "cue": "Fold forward, hands toward floor, alternate straightening one knee at a time."
+          "cue": "Fold forward, hands toward floor, alternate straightening one knee at a time.",
+          "muscles": "Hamstrings"
         },
         {
           "id": "couch_stretch",
@@ -182,7 +195,8 @@
           "duration_sec": 45,
           "per_side": true,
           "rest_sec": 30,
-          "cue": "Back foot up on a bench or wall, squeeze the glute, stay tall. Gentle — no forcing."
+          "cue": "Back foot up on a bench or wall, squeeze the glute, stay tall. Gentle — no forcing.",
+          "muscles": "Hip flexors & quads"
         }
       ]
     },
@@ -199,7 +213,8 @@
           "sets": 2,
           "reps": "10",
           "rest_sec": 30,
-          "cue": "Roller across the mid-back, hands behind head, extend over it. Move the roller up a notch between reps."
+          "cue": "Roller across the mid-back, hands behind head, extend over it. Move the roller up a notch between reps.",
+          "muscles": "Upper spine (T-spine)"
         },
         {
           "id": "wall_slides",
@@ -209,7 +224,8 @@
           "sets": 2,
           "reps": "10",
           "rest_sec": 30,
-          "cue": "Forearms on the wall, slide up as high as possible while keeping contact."
+          "cue": "Forearms on the wall, slide up as high as possible while keeping contact.",
+          "muscles": "Shoulders & scapula"
         },
         {
           "id": "lat_stretch",
@@ -220,7 +236,8 @@
           "duration_sec": 40,
           "per_side": true,
           "rest_sec": 20,
-          "cue": "Grab a bar or post with one hand, sink the hips back and away."
+          "cue": "Grab a bar or post with one hand, sink the hips back and away.",
+          "muscles": "Lats"
         },
         {
           "id": "pec_doorway",
@@ -231,7 +248,8 @@
           "duration_sec": 40,
           "per_side": true,
           "rest_sec": 20,
-          "cue": "Forearm on the frame at shoulder height, step through gently."
+          "cue": "Forearm on the frame at shoulder height, step through gently.",
+          "muscles": "Chest & front shoulder"
         }
       ]
     },
@@ -249,7 +267,8 @@
           "reps": "15",
           "load_kg": 2,
           "rest_sec": 60,
-          "cue": "Light DB, palm down, forearm on knee. Lift the knuckles slowly. Antagonist for climbing forearms."
+          "cue": "Light DB, palm down, forearm on knee. Lift the knuckles slowly. Antagonist for climbing forearms.",
+          "muscles": "Forearm extensors"
         },
         {
           "id": "db_ext_rotation",
@@ -261,7 +280,8 @@
           "load_kg": 3,
           "per_side": true,
           "rest_sec": 45,
-          "cue": "Lie on your side, elbow pinned to hip, rotate the forearm up slowly."
+          "cue": "Lie on your side, elbow pinned to hip, rotate the forearm up slowly.",
+          "muscles": "Rotator cuff (shoulder)"
         },
         {
           "id": "rear_delt_fly",
@@ -272,7 +292,8 @@
           "reps": "12-15",
           "load_kg": 4,
           "rest_sec": 60,
-          "cue": "Hinge over, raise the DBs out to the sides, thumbs forward, no swinging."
+          "cue": "Hinge over, raise the DBs out to the sides, thumbs forward, no swinging.",
+          "muscles": "Rear shoulders"
         }
       ]
     }
@@ -287,7 +308,8 @@
       "reps": "6-10",
       "load_kg": 0,
       "rest_sec": 120,
-      "cue": "Palms toward you. Full range, control the way down."
+      "cue": "Palms toward you. Full range, control the way down.",
+      "muscles": "Lats & biceps"
     },
     {
       "id": "lat_pulldown",
@@ -298,7 +320,8 @@
       "reps": "8-12",
       "load_kg": 30,
       "rest_sec": 90,
-      "cue": "Pull to the collarbone, chest tall, no leaning back for momentum."
+      "cue": "Pull to the collarbone, chest tall, no leaning back for momentum.",
+      "muscles": "Lats"
     },
     {
       "id": "seated_cable_row",
@@ -309,7 +332,8 @@
       "reps": "8-12",
       "load_kg": 30,
       "rest_sec": 90,
-      "cue": "Pull to the lower ribs, squeeze the shoulder blades, slow return."
+      "cue": "Pull to the lower ribs, squeeze the shoulder blades, slow return.",
+      "muscles": "Mid-back & lats"
     },
     {
       "id": "bench_press",
@@ -320,7 +344,8 @@
       "reps": "5-8",
       "load_kg": 30,
       "rest_sec": 150,
-      "cue": "Feet planted, bar to mid-chest, press up and slightly back."
+      "cue": "Feet planted, bar to mid-chest, press up and slightly back.",
+      "muscles": "Chest & triceps"
     },
     {
       "id": "incline_db_press",
@@ -331,7 +356,8 @@
       "reps": "8-12",
       "load_kg": 12,
       "rest_sec": 90,
-      "cue": "Bench at ~30°. Press up and in, don't let the DBs drift out wide."
+      "cue": "Bench at ~30°. Press up and in, don't let the DBs drift out wide.",
+      "muscles": "Upper chest & shoulders"
     },
     {
       "id": "lateral_raises",
@@ -342,7 +368,8 @@
       "reps": "12-15",
       "load_kg": 4,
       "rest_sec": 60,
-      "cue": "Soft elbows, raise to shoulder height, no shrugging."
+      "cue": "Soft elbows, raise to shoulder height, no shrugging.",
+      "muscles": "Side shoulders"
     },
     {
       "id": "ab_wheel",
@@ -352,7 +379,8 @@
       "sets": 3,
       "reps": "6-10",
       "rest_sec": 90,
-      "cue": "From knees. Ribs down, no lower-back sag — shorten the rollout if it arches."
+      "cue": "From knees. Ribs down, no lower-back sag — shorten the rollout if it arches.",
+      "muscles": "Abs (anti-extension)"
     },
     {
       "id": "side_plank",
@@ -363,7 +391,8 @@
       "duration_sec": 30,
       "per_side": true,
       "rest_sec": 45,
-      "cue": "Straight line ear to ankle, hips stacked and lifted."
+      "cue": "Straight line ear to ankle, hips stacked and lifted.",
+      "muscles": "Obliques"
     },
     {
       "id": "toes_to_bar",
@@ -373,7 +402,8 @@
       "sets": 3,
       "reps": "5-10",
       "rest_sec": 90,
-      "cue": "Hang, lift the toes to the bar with control. Bend knees to scale."
+      "cue": "Hang, lift the toes to the bar with control. Bend knees to scale.",
+      "muscles": "Abs & hip flexors"
     },
     {
       "id": "v_ups",
@@ -383,7 +413,8 @@
       "sets": 3,
       "reps": "10-15",
       "rest_sec": 60,
-      "cue": "Reach hands to feet, fold in the middle, lower slowly."
+      "cue": "Reach hands to feet, fold in the middle, lower slowly.",
+      "muscles": "Abs"
     },
     {
       "id": "back_squat",
@@ -394,7 +425,8 @@
       "reps": "5-8",
       "load_kg": 40,
       "rest_sec": 150,
-      "cue": "Brace, sit down between the heels, drive up. Depth before load."
+      "cue": "Brace, sit down between the heels, drive up. Depth before load.",
+      "muscles": "Quads & glutes"
     },
     {
       "id": "rdl",
@@ -405,7 +437,8 @@
       "reps": "6-10",
       "load_kg": 40,
       "rest_sec": 120,
-      "cue": "Hinge at the hips, bar close to the legs, stop when the hamstrings say so."
+      "cue": "Hinge at the hips, bar close to the legs, stop when the hamstrings say so.",
+      "muscles": "Hamstrings & glutes"
     },
     {
       "id": "split_squats",
@@ -417,7 +450,8 @@
       "load_kg": 8,
       "per_side": true,
       "rest_sec": 90,
-      "cue": "Long stance, back knee toward the floor, front heel heavy."
+      "cue": "Long stance, back knee toward the floor, front heel heavy.",
+      "muscles": "Quads & glutes"
     },
     {
       "id": "calf_raises",
@@ -428,7 +462,8 @@
       "reps": "12-15",
       "load_kg": 20,
       "rest_sec": 60,
-      "cue": "Full stretch at the bottom, pause at the top. Useful for smearing and toe hooks."
+      "cue": "Full stretch at the bottom, pause at the top. Useful for smearing and toe hooks.",
+      "muscles": "Calves"
     },
     {
       "id": "pigeon_stretch",
@@ -439,7 +474,8 @@
       "duration_sec": 45,
       "per_side": true,
       "rest_sec": 20,
-      "cue": "Front shin across, hips square, fold forward only as far as comfortable."
+      "cue": "Front shin across, hips square, fold forward only as far as comfortable.",
+      "muscles": "Glutes & hip rotators"
     },
     {
       "id": "frog_rocks",
@@ -449,7 +485,8 @@
       "sets": 2,
       "reps": "10",
       "rest_sec": 30,
-      "cue": "Knees wide on the floor, rock hips back toward the heels and forward."
+      "cue": "Knees wide on the floor, rock hips back toward the heels and forward.",
+      "muscles": "Inner thighs (adductors)"
     },
     {
       "id": "deep_lunge_rotation",
@@ -460,7 +497,8 @@
       "reps": "6",
       "per_side": true,
       "rest_sec": 30,
-      "cue": "Low lunge, inside hand down, rotate the other arm to the ceiling. High-step opener."
+      "cue": "Low lunge, inside hand down, rotate the other arm to the ceiling. High-step opener.",
+      "muscles": "Hip flexors & T-spine"
     },
     {
       "id": "ytw_raises",
@@ -470,7 +508,8 @@
       "sets": 2,
       "reps": "8",
       "rest_sec": 45,
-      "cue": "Chest on an incline bench. 8 reps in each letter shape, thumbs up, light or no weight."
+      "cue": "Chest on an incline bench. 8 reps in each letter shape, thumbs up, light or no weight.",
+      "muscles": "Shoulders & scapula"
     },
     {
       "id": "cuban_rotation",
@@ -481,7 +520,8 @@
       "reps": "10",
       "load_kg": 2,
       "rest_sec": 60,
-      "cue": "Row up, rotate the forearms back, press overhead. Very light — quality only."
+      "cue": "Row up, rotate the forearms back, press overhead. Very light — quality only.",
+      "muscles": "Rotator cuff (shoulder)"
     },
     {
       "id": "wrist_flexor_stretch",
@@ -492,7 +532,8 @@
       "duration_sec": 30,
       "per_side": true,
       "rest_sec": 15,
-      "cue": "Palm flat on the bench, fingers toward you, lean back gently."
+      "cue": "Palm flat on the bench, fingers toward you, lean back gently.",
+      "muscles": "Forearm flexors"
     }
   ]
 }

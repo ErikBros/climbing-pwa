@@ -132,6 +132,12 @@ button.form-chips { display: inline-block; margin-bottom: 14px; }
 }
 .ex-name { font-weight: 600; }
 .yt-link { color: var(--terracotta); font-size: 0.75rem; text-decoration: none; margin-left: 4px; white-space: nowrap; }
+.muscle-tag {
+  display: inline-block;
+  background: var(--surface2); color: var(--sage);
+  border-radius: 999px; padding: 1px 8px;
+  font-size: 0.68rem; font-weight: 600; vertical-align: middle;
+}
 .resume-card {
   display: block; width: 100%;
   background: var(--terracotta); color: #fff;
