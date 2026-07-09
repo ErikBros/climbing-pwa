@@ -304,10 +304,12 @@ function fmtDate(iso) {
 }
 
 function targetText(ex) {
+  // ex.sets is a count in schedule.json but an array of set objects in a session
+  const count = Array.isArray(ex.sets) ? ex.sets.length : ex.sets;
   const side = ex.per_side ? '/side' : '';
-  if (ex.metric === 'TIME') return `${ex.sets} × ${ex.durationSec}s${side}`;
-  const load = ex.metric === 'REPS_LOAD' ? ` @ ${ex.loadKg} kg` : '';
-  return `${ex.sets} × ${ex.targetReps}${side}${load}`;
+  if (ex.metric === 'TIME') return `${count} × ${ex.durationSec}s${side}`;
+  const load = ex.metric === 'REPS_LOAD' && ex.loadKg ? ` @ ${ex.loadKg} kg` : '';
+  return `${count} × ${ex.targetReps}${side}${load}`;
 }
 
 // Last logged load/reps for an exercise, scanning history newest-first.
