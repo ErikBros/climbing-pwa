@@ -288,6 +288,7 @@ function advancePhase() {
   const c = countdown;
   doneTone();
   buzz(80);
+  c.phases[c.phaseIdx].onEnd?.(); // fires when a phase completes (or is skipped)
   if (c.phaseIdx < c.phases.length - 1) {
     c.phaseIdx += 1;
     c.endAt = Date.now() + c.phases[c.phaseIdx].sec * 1000;
@@ -375,6 +376,82 @@ function runTimedSet(ex, onComplete) {
     onDone() {
       overlay.remove();
       onComplete();
+    },
+  });
+}
+
+/* ---------------- whole-exercise auto-run (TIME exercises) ---------------- */
+
+// One overlay that walks every remaining set: work (+side switch), rest, next set.
+// Sets are marked done as their work completes — quietly, no rest banner (the
+// overlay carries its own rest phases).
+function runExercise(bi, ei) {
+  hideRest();
+  const session = loadActive();
+  const ex = session.blocks[bi].exercises[ei];
+  const todo = ex.sets.map((set, si) => ({ set, si })).filter((x) => !x.set.done);
+  if (!todo.length) return;
+
+  const markDone = (si) => {
+    const s = loadActive();
+    s.blocks[bi].exercises[ei].sets[si].done = true;
+    saveActive(s);
+    render();
+  };
+
+  const phases = [{ kind: 'prep', label: 'Get ready', sec: 3 }];
+  todo.forEach(({ si }, i) => {
+    const setLabel = `Set ${si + 1}/${ex.sets.length}`;
+    if (ex.per_side) {
+      phases.push({ kind: 'work', label: `${setLabel} — first side`, sec: ex.durationSec });
+      phases.push({ kind: 'prep', label: 'Switch sides', sec: 10 });
+      phases.push({ kind: 'work', label: `${setLabel} — second side`, sec: ex.durationSec, onEnd: () => markDone(si) });
+    } else {
+      phases.push({ kind: 'work', label: setLabel, sec: ex.durationSec, onEnd: () => markDone(si) });
+    }
+    if (i < todo.length - 1 && ex.restSec)
+      phases.push({ kind: 'rest', label: `Rest — set ${todo[i + 1].si + 1} next`, sec: ex.restSec });
+  });
+
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.innerHTML = `
+    <div class="phase-label"></div>
+    <div class="big-time"></div>
+    <div class="ex-label">${ex.name}</div>
+    <div class="controls">
+      <button class="minus">−15</button>
+      <button class="pause">Pause</button>
+      <button class="plus">+15</button>
+    </div>
+    <div class="controls">
+      <button class="skip">Skip</button>
+      <button class="stop">Stop</button>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('.minus').onclick = () => adjustCountdown(-15);
+  overlay.querySelector('.plus').onclick = () => adjustCountdown(15);
+  overlay.querySelector('.pause').onclick = (e) => {
+    pauseToggleCountdown();
+    e.target.textContent = countdown?.paused ? 'Resume' : 'Pause';
+  };
+  overlay.querySelector('.skip').onclick = () => advancePhase();
+  overlay.querySelector('.stop').onclick = () =>
+    confirmAsk('Stop exercise timer?', 'Sets already completed stay logged.', 'Stop', () => {
+      stopCountdown();
+      overlay.remove();
+    });
+
+  startCountdown(phases, {
+    render(phase, remaining) {
+      overlay.className = 'overlay ' + phase.kind;
+      overlay.querySelector('.phase-label').textContent = phase.label;
+      overlay.querySelector('.big-time').textContent = fmtTime(remaining);
+    },
+    onDone() {
+      buzz(300);
+      overlay.remove();
     },
   });
 }
@@ -964,6 +1041,15 @@ function renderSession(session) {
       // Tappable timer chips — edits persist for future sessions (per-exercise override).
       const chips = document.createElement('div');
       chips.className = 'chip-row wrap';
+
+      if (ex.metric === 'TIME' && ex.sets.some((s) => !s.done)) {
+        const runChip = document.createElement('button');
+        runChip.className = 'chip run';
+        const remaining = ex.sets.filter((s) => !s.done).length;
+        runChip.textContent = remaining === ex.sets.length ? '▶ run all' : `▶ run ${remaining} left`;
+        runChip.onclick = () => runExercise(bi, ei);
+        chips.appendChild(runChip);
+      }
 
       const setsChip = document.createElement('button');
       setsChip.className = 'chip';

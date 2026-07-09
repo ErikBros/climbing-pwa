@@ -86,6 +86,7 @@ button.form-chips { display: inline-block; margin-bottom: 14px; }
   border: 1px solid var(--surface2); border-radius: var(--radius);
   padding: 11px 12px; font: inherit; font-size: 1rem;
 }
+.chip.run { background: var(--terracotta); color: #fff; font-weight: 600; }
 .chip.paste { background: var(--terracotta-dim); color: #fff; }
 .chip.paste .chip-label { color: rgba(255, 255, 255, 0.8); }
 .block-card .tick {
