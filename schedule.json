@@ -1,6 +1,6 @@
 {
   "version": "1.3.0",
-  "title": "Climbing Trainer",
+  "title": "Beta",
   "notes": "Block library for a V4+/6b+ climber. Gym equipment only. No finger-strength work by design — fingers get trained on the wall.",
   "categories": {
     "pull": "Pull",

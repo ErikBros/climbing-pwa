@@ -1,4 +1,4 @@
-# Climbing Trainer PWA
+# Beta — climbing trainer PWA
 
 A tiny offline-first training app, built as an installable web app so it runs on iPhone without an Apple developer account. Companion to the (Android-only) climbing-trainer app — same block-picker concept, radically smaller.
 

@@ -1,6 +1,6 @@
 {
-  "name": "Climbing Trainer",
-  "short_name": "Climb",
+  "name": "Beta",
+  "short_name": "Beta",
   "description": "Pick your blocks, run your session, log your sets.",
   "start_url": "./",
   "scope": "./",

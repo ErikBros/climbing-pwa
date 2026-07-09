@@ -1,4 +1,4 @@
-/* Climbing Trainer PWA — vanilla JS, no build step.
+/* Beta — climbing trainer PWA — vanilla JS, no build step.
  * Data lives in localStorage on the device. No server, no accounts.
  */
 'use strict';
