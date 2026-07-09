@@ -9,6 +9,7 @@ A tiny offline-first training app, built as an installable web app so it runs on
 - **Block picker** — choose which training blocks to do today (Pull, Push & Shoulder, Core, Hips, Shoulder mobility, Prehab), see the estimated total time, start.
 - **Session view** — exercises with target sets/reps/load and coaching cues; tap ✓ per set; reps/kg editable per set (load prefills from your last session).
 - **Timers** — timed exercises get a full-screen countdown (3s prep, per-side switch handled automatically, ±15s/pause/skip); completing a set starts a rest countdown with ±15s, pause and skip. Audio ticks at 3-2-1 and a done-tone, screen stays awake during timers. Work and rest durations are editable in-session via the `work`/`rest` chips on each exercise — edits persist as per-exercise overrides for future sessions.
+- **Weekly plan** — assign blocks to weekdays on the Week tab; the Train picker pre-fills from today's plan (still freely adjustable on the day — deviations aren't saved, the template stays the plan).
 - **History** — past sessions, expandable to set detail; one-tap JSON export (share sheet on iOS).
 - **Fully offline** — service worker caches everything on first visit. All data stays in the phone's local storage. No server, no accounts, no tracking.
 

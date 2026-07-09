@@ -6,6 +6,11 @@
 const LS_ACTIVE = 'ct_active_session';
 const LS_HISTORY = 'ct_history';
 const LS_OVERRIDES = 'ct_overrides'; // per-exercise user overrides: { exId: { durationSec?, restSec? } }
+const LS_TEMPLATE = 'ct_week_template'; // recurring weekday plan: { mon: [blockId, ...], ... }
+
+const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const DAY_NAMES = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
+const todayKey = () => DAY_KEYS[(new Date().getDay() + 6) % 7]; // JS Sunday=0 → our Monday-first keys
 
 let schedule = null;          // loaded from schedule.json
 let selectedBlockIds = [];    // picker state
@@ -37,6 +42,17 @@ function saveOverride(exId, patch) {
   const o = loadOverrides();
   o[exId] = { ...o[exId], ...patch };
   localStorage.setItem(LS_OVERRIDES, JSON.stringify(o));
+}
+function loadTemplate() {
+  try { return JSON.parse(localStorage.getItem(LS_TEMPLATE)) || {}; } catch { return {}; }
+}
+function saveTemplate(t) {
+  localStorage.setItem(LS_TEMPLATE, JSON.stringify(t));
+}
+// Today's planned block ids, filtered to blocks that still exist in the schedule.
+function todaysPlannedBlockIds() {
+  const planned = loadTemplate()[todayKey()] || [];
+  return planned.filter((id) => schedule.blocks.some((b) => b.id === id));
 }
 
 /* ---------------- audio (unlocked on first touch) ---------------- */
@@ -370,12 +386,14 @@ function finishSession() {
   saveHistory(history);
   saveActive(null);
   hideRest();
+  selectedBlockIds = todaysPlannedBlockIds();
   render();
 }
 
 function discardSession() {
   saveActive(null);
   hideRest();
+  selectedBlockIds = todaysPlannedBlockIds();
   render();
 }
 
@@ -386,9 +404,12 @@ function renderPicker() {
     .filter((b) => selectedBlockIds.includes(b.id))
     .reduce((sum, b) => sum + b.duration_min, 0);
 
+  const plannedToday = todaysPlannedBlockIds();
   $view.innerHTML = `
     <h1>Today</h1>
-    <p class="sub">Pick your blocks, then start.</p>
+    <p class="sub">${plannedToday.length
+      ? `Pre-filled from your weekly plan (${DAY_NAMES[todayKey()]}) — adjust freely.`
+      : 'Pick your blocks, then start.'}</p>
     <div id="block-list"></div>
     <div class="start-bar">
       <button class="btn-primary" id="start-btn" ${selectedBlockIds.length ? '' : 'disabled'}>
@@ -566,6 +587,49 @@ function markTimedSetDone(bi, ei, si) {
   if (ex.restSec && si < ex.sets.length - 1) startRest(ex.restSec, `${ex.name} set ${si + 2}`);
 }
 
+/* ---------------- render: week tab ---------------- */
+
+function renderWeek() {
+  const template = loadTemplate();
+  $view.innerHTML = `
+    <h1>Weekly plan</h1>
+    <p class="sub">Tap blocks to plan each weekday. Today's picker pre-fills from this — you can always deviate on the day.</p>`;
+
+  for (const day of DAY_KEYS) {
+    const planned = template[day] || [];
+    const totalMin = schedule.blocks
+      .filter((b) => planned.includes(b.id))
+      .reduce((sum, b) => sum + b.duration_min, 0);
+
+    const row = document.createElement('div');
+    row.className = 'day-row' + (day === todayKey() ? ' today' : '');
+    row.innerHTML = `
+      <div class="day-head">
+        <span class="day-name">${DAY_NAMES[day]}${day === todayKey() ? ' · today' : ''}</span>
+        <span class="day-total">${totalMin ? `~${totalMin} min` : 'rest'}</span>
+      </div>
+      <div class="chip-row wrap"></div>`;
+
+    const chipRow = row.querySelector('.chip-row');
+    for (const b of schedule.blocks) {
+      const selected = planned.includes(b.id);
+      const chip = document.createElement('button');
+      chip.className = 'chip' + (selected ? ' selected' : '');
+      chip.textContent = b.name;
+      chip.onclick = () => {
+        const t = loadTemplate();
+        const cur = t[day] || [];
+        t[day] = selected ? cur.filter((id) => id !== b.id) : [...cur, b.id];
+        saveTemplate(t);
+        if (day === todayKey() && !loadActive()) selectedBlockIds = todaysPlannedBlockIds();
+        render();
+      };
+      chipRow.appendChild(chip);
+    }
+    $view.appendChild(row);
+  }
+}
+
 /* ---------------- render: history tab ---------------- */
 
 const expandedHist = new Set();
@@ -640,6 +704,10 @@ function render() {
     renderHistory();
     return;
   }
+  if (currentTab === 'week') {
+    renderWeek();
+    return;
+  }
   const session = loadActive();
   if (session) renderSession(session);
   else renderPicker();
@@ -657,6 +725,7 @@ fetch('schedule.json')
   .then((r) => r.json())
   .then((data) => {
     schedule = data;
+    if (!loadActive()) selectedBlockIds = todaysPlannedBlockIds(); // seed picker from weekly plan
     render();
   })
   .catch(() => {

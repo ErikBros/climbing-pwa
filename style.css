@@ -92,6 +92,21 @@ button { font: inherit; color: inherit; border: none; background: none; cursor: 
 .ex-cue { color: var(--text-dim); font-size: 0.8rem; font-style: italic; margin-bottom: 10px; }
 
 .chip-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.chip-row.wrap { flex-wrap: wrap; margin-bottom: 0; }
+.chip.selected { background: var(--terracotta); color: #fff; }
+.chip.selected .chip-label { color: rgba(255, 255, 255, 0.75); }
+
+.day-row {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 2px solid transparent;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.day-row.today { border-color: var(--terracotta-dim); }
+.day-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.day-name { font-weight: 600; }
+.day-total { color: var(--text-dim); font-size: 0.8rem; }
 .chip {
   background: var(--surface2);
   border-radius: 999px;
