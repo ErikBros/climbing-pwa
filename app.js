@@ -9,6 +9,7 @@ const LS_OVERRIDES = 'ct_overrides'; // per-exercise user overrides: { exId: { d
 const LS_TEMPLATE = 'ct_week_template'; // legacy recurring template — migrated into LS_WEEK_PLANS on boot
 const LS_WEEK_PLANS = 'ct_week_plans'; // per-calendar-week plans: { "2026-W28": { mon: [blockId, ...], ... }, ... }
 const LS_CUSTOM_BLOCKS = 'ct_custom_blocks'; // user-built blocks: full block objects with copied exercises
+const LS_HIDDEN = 'ct_hidden_blocks'; // bundled block ids hidden from the picker and week planner
 
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const DAY_NAMES = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
@@ -91,6 +92,25 @@ function saveCustomBlocks(blocks) {
 function allBlocks() {
   return [...schedule.blocks, ...loadCustomBlocks()];
 }
+function loadHidden() {
+  try { return JSON.parse(localStorage.getItem(LS_HIDDEN)) || []; } catch { return []; }
+}
+function saveHidden(ids) {
+  localStorage.setItem(LS_HIDDEN, JSON.stringify(ids));
+}
+function visibleBlocks() {
+  const hidden = loadHidden();
+  return allBlocks().filter((b) => !hidden.includes(b.id));
+}
+function hideBlock(id) {
+  saveHidden([...new Set([...loadHidden(), id])]);
+  // A hidden block shouldn't linger in plans or the current selection.
+  const plans = loadWeekPlans();
+  for (const week of Object.values(plans))
+    for (const day of DAY_KEYS) if (week[day]) week[day] = week[day].filter((b) => b !== id);
+  saveWeekPlans(plans);
+  selectedBlockIds = selectedBlockIds.filter((b) => b !== id);
+}
 
 // Every known exercise (bundled blocks + library extras), deduped by id, grouped later by category.
 function libraryExercises() {
@@ -115,11 +135,11 @@ function estimateDurationMin(exercises) {
   return Math.max(5, Math.round(sec / 60));
 }
 
-// Today's planned block ids from THIS week's plan, filtered to blocks that still exist.
+// Today's planned block ids from THIS week's plan, filtered to blocks that still exist and aren't hidden.
 function todaysPlannedBlockIds() {
   const plan = loadWeekPlans()[isoWeekKey(new Date())] || {};
   const planned = plan[todayKey()] || [];
-  return planned.filter((id) => allBlocks().some((b) => b.id === id));
+  return planned.filter((id) => visibleBlocks().some((b) => b.id === id));
 }
 
 /* ---------------- audio (unlocked on first touch) ---------------- */
@@ -475,6 +495,7 @@ function discardSession() {
 /* ---------------- render: train tab ---------------- */
 
 const expandedBlocks = new Set();
+let showHiddenList = false;
 
 function renderPicker() {
   const total = allBlocks()
@@ -496,7 +517,7 @@ function renderPicker() {
     </div>`;
 
   const list = $view.querySelector('#block-list');
-  for (const b of allBlocks()) {
+  for (const b of visibleBlocks()) {
     const selected = selectedBlockIds.includes(b.id);
     const expanded = expandedBlocks.has(b.id);
     const card = document.createElement('div');
@@ -536,8 +557,43 @@ function renderPicker() {
       detail.innerHTML = b.exercises
         .map((ex) => `<div class="detail-line"><b>${ex.name}</b> — ${targetText(ex)}</div>`)
         .join('');
+      if (!b.custom) {
+        const hideBtn = document.createElement('button');
+        hideBtn.className = 'btn-ghost detail-hide';
+        hideBtn.textContent = 'Hide this block';
+        hideBtn.onclick = () => {
+          hideBlock(b.id);
+          expandedBlocks.delete(b.id);
+          render();
+        };
+        detail.appendChild(hideBtn);
+      }
       list.appendChild(detail);
     }
+  }
+
+  // Hidden blocks live in a collapsed row at the bottom; unhide restores them.
+  const hidden = loadHidden().map((id) => allBlocks().find((b) => b.id === id)).filter(Boolean);
+  if (hidden.length) {
+    const section = document.createElement('div');
+    section.className = 'hidden-section';
+    section.innerHTML = `<button class="btn-ghost" id="hidden-toggle">${showHiddenList ? '▾' : '▸'} Hidden blocks (${hidden.length})</button>`;
+    section.querySelector('#hidden-toggle').onclick = () => { showHiddenList = !showHiddenList; render(); };
+    if (showHiddenList) {
+      for (const b of hidden) {
+        const row = document.createElement('div');
+        row.className = 'block-card hidden-row';
+        row.innerHTML = `
+          <span class="meta"><span class="name">${b.name}</span></span>
+          <button class="btn-ghost unhide">Show</button>`;
+        row.querySelector('.unhide').onclick = () => {
+          saveHidden(loadHidden().filter((id) => id !== b.id));
+          render();
+        };
+        section.appendChild(row);
+      }
+    }
+    list.appendChild(section);
   }
 
   $view.querySelector('#create-block-btn').onclick = () => {
@@ -869,7 +925,7 @@ function renderWeek() {
       <div class="chip-row wrap"></div>`;
 
     const chipRow = row.querySelector('.chip-row');
-    for (const b of allBlocks()) {
+    for (const b of visibleBlocks()) {
       const selected = planned.includes(b.id);
       const chip = document.createElement('button');
       chip.className = 'chip' + (selected ? ' selected' : '');

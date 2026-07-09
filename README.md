@@ -7,6 +7,7 @@ A tiny offline-first training app, built as an installable web app so it runs on
 ## What it does
 
 - **Block picker** — choose which training blocks to do today (Pull, Push & Shoulder, Core, Hips, Shoulder mobility, Prehab), expand any block (▸) to preview its exercises, see the estimated total time, start.
+- **Hide blocks** — expand a bundled block (▸) → "Hide this block" removes it from the picker and week planner (and strips it from existing plans); a collapsed "Hidden blocks" row at the bottom restores them anytime. Custom blocks are deleted via ✎ instead.
 - **Custom blocks** — "＋ Create your own block": compose a block from a categorized exercise library (pull / push / core / legs / hips / shoulders / prehab, ~20 extra exercises beyond the bundled blocks). Custom blocks are editable/deletable (✎) and work in the weekly plan.
 - **Last-time paste** — each exercise shows an `↻ last` chip with the previous session's reps/kg; one tap pastes them into the current session's sets. Inputs also show last-time values as placeholders.
 - **Session view** — exercises with target sets/reps/load and coaching cues; tap ✓ per set; reps/kg editable per set (load prefills from your last session).
