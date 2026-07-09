@@ -1,0 +1,250 @@
+{
+  "version": "1.0.0",
+  "title": "Climbing Trainer",
+  "notes": "Block library for a V4+/6b+ climber. Gym equipment only. No finger-strength work by design — fingers get trained on the wall.",
+  "blocks": [
+    {
+      "id": "pull_strength",
+      "name": "Pull Strength",
+      "duration_min": 25,
+      "exercises": [
+        {
+          "id": "scap_pullups",
+          "name": "Scap pull-ups",
+          "metric": "REPS",
+          "sets": 2,
+          "reps": "5",
+          "rest_sec": 60,
+          "cue": "Dead hang, arms straight. Pull shoulder blades down and together, hold 1s, release."
+        },
+        {
+          "id": "pullups",
+          "name": "Pull-ups",
+          "metric": "REPS_LOAD",
+          "sets": 4,
+          "reps": "5-8",
+          "load_kg": 0,
+          "rest_sec": 150,
+          "cue": "Full range, chest toward bar. Add weight once 8 clean reps feel easy (0 kg = bodyweight)."
+        },
+        {
+          "id": "ring_rows",
+          "name": "Ring / inverted rows",
+          "metric": "REPS",
+          "sets": 3,
+          "reps": "8-12",
+          "rest_sec": 90,
+          "cue": "Body in one line, pull rings to chest. Walk feet forward to make it harder."
+        }
+      ]
+    },
+    {
+      "id": "push_shoulder",
+      "name": "Push & Shoulder",
+      "duration_min": 25,
+      "exercises": [
+        {
+          "id": "band_pullaparts",
+          "name": "Band pull-aparts",
+          "metric": "REPS",
+          "sets": 2,
+          "reps": "15",
+          "rest_sec": 30,
+          "cue": "Arms straight at shoulder height, squeeze shoulder blades together."
+        },
+        {
+          "id": "db_ohp",
+          "name": "DB overhead press",
+          "metric": "REPS_LOAD",
+          "sets": 3,
+          "reps": "6-10",
+          "load_kg": 8,
+          "rest_sec": 120,
+          "cue": "Press straight overhead without arching the lower back. Per-hand weight."
+        },
+        {
+          "id": "dips_pushups",
+          "name": "Dips or push-ups",
+          "metric": "REPS",
+          "sets": 3,
+          "reps": "8-12",
+          "rest_sec": 90,
+          "cue": "Dips if shoulders are happy, otherwise push-ups. Full depth, controlled down."
+        },
+        {
+          "id": "face_pulls",
+          "name": "Face pulls",
+          "metric": "REPS",
+          "sets": 2,
+          "reps": "12-15",
+          "rest_sec": 60,
+          "cue": "Cable or band at face height. Pull toward ears, thumbs pointing back."
+        }
+      ]
+    },
+    {
+      "id": "core",
+      "name": "Core",
+      "duration_min": 20,
+      "exercises": [
+        {
+          "id": "hanging_leg_raise",
+          "name": "Hanging leg raises",
+          "metric": "REPS",
+          "sets": 3,
+          "reps": "8-12",
+          "rest_sec": 90,
+          "cue": "No swing. Knees to chest to start; straighten the legs as it gets easy."
+        },
+        {
+          "id": "hollow_rock",
+          "name": "Hollow body rocks",
+          "metric": "TIME",
+          "sets": 3,
+          "duration_sec": 25,
+          "rest_sec": 60,
+          "cue": "Lower back pressed into the floor. Shrink the shape if the back pops up."
+        },
+        {
+          "id": "pallof_press",
+          "name": "Pallof press",
+          "metric": "REPS",
+          "sets": 2,
+          "reps": "10",
+          "per_side": true,
+          "rest_sec": 60,
+          "cue": "Cable/band at chest height, stand side-on. Press out slowly, resist the rotation."
+        }
+      ]
+    },
+    {
+      "id": "hips",
+      "name": "Hips & Hamstrings",
+      "duration_min": 20,
+      "exercises": [
+        {
+          "id": "ninety_ninety",
+          "name": "90/90 hip switches",
+          "metric": "REPS",
+          "sets": 2,
+          "reps": "8",
+          "per_side": true,
+          "rest_sec": 30,
+          "cue": "Sit tall, rotate both knees side to side without using hands."
+        },
+        {
+          "id": "deep_squat_hold",
+          "name": "Deep squat hold",
+          "metric": "TIME",
+          "sets": 3,
+          "duration_sec": 30,
+          "rest_sec": 45,
+          "cue": "Heels down, chest up. Hold a post for balance if needed."
+        },
+        {
+          "id": "elephant_walks",
+          "name": "Elephant walks",
+          "metric": "REPS",
+          "sets": 2,
+          "reps": "10",
+          "per_side": true,
+          "rest_sec": 30,
+          "cue": "Fold forward, hands toward floor, alternate straightening one knee at a time."
+        },
+        {
+          "id": "couch_stretch",
+          "name": "Couch stretch",
+          "metric": "TIME",
+          "sets": 2,
+          "duration_sec": 45,
+          "per_side": true,
+          "rest_sec": 30,
+          "cue": "Back foot up on a bench or wall, squeeze the glute, stay tall. Gentle — no forcing."
+        }
+      ]
+    },
+    {
+      "id": "shoulder_mobility",
+      "name": "Shoulders & T-spine",
+      "duration_min": 15,
+      "exercises": [
+        {
+          "id": "tspine_foam_roll",
+          "name": "T-spine extensions on roller",
+          "metric": "REPS",
+          "sets": 2,
+          "reps": "10",
+          "rest_sec": 30,
+          "cue": "Roller across the mid-back, hands behind head, extend over it. Move the roller up a notch between reps."
+        },
+        {
+          "id": "wall_slides",
+          "name": "Wall slides",
+          "metric": "REPS",
+          "sets": 2,
+          "reps": "10",
+          "rest_sec": 30,
+          "cue": "Forearms on the wall, slide up as high as possible while keeping contact."
+        },
+        {
+          "id": "lat_stretch",
+          "name": "Lat stretch on bar",
+          "metric": "TIME",
+          "sets": 2,
+          "duration_sec": 40,
+          "per_side": true,
+          "rest_sec": 20,
+          "cue": "Grab a bar or post with one hand, sink the hips back and away."
+        },
+        {
+          "id": "pec_doorway",
+          "name": "Pec doorway stretch",
+          "metric": "TIME",
+          "sets": 2,
+          "duration_sec": 40,
+          "per_side": true,
+          "rest_sec": 20,
+          "cue": "Forearm on the frame at shoulder height, step through gently."
+        }
+      ]
+    },
+    {
+      "id": "prehab",
+      "name": "Climbing Prehab",
+      "duration_min": 15,
+      "exercises": [
+        {
+          "id": "wrist_ext_curls",
+          "name": "Wrist extensor curls",
+          "metric": "REPS_LOAD",
+          "sets": 3,
+          "reps": "15",
+          "load_kg": 2,
+          "rest_sec": 60,
+          "cue": "Light DB, palm down, forearm on knee. Lift the knuckles slowly. Antagonist for climbing forearms."
+        },
+        {
+          "id": "db_ext_rotation",
+          "name": "DB external rotation",
+          "metric": "REPS_LOAD",
+          "sets": 2,
+          "reps": "12",
+          "load_kg": 3,
+          "per_side": true,
+          "rest_sec": 45,
+          "cue": "Lie on your side, elbow pinned to hip, rotate the forearm up slowly."
+        },
+        {
+          "id": "rear_delt_fly",
+          "name": "Rear-delt fly",
+          "metric": "REPS_LOAD",
+          "sets": 2,
+          "reps": "12-15",
+          "load_kg": 4,
+          "rest_sec": 60,
+          "cue": "Hinge over, raise the DBs out to the sides, thumbs forward, no swinging."
+        }
+      ]
+    }
+  ]
+}

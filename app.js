@@ -1,0 +1,575 @@
+/* Climbing Trainer PWA — vanilla JS, no build step.
+ * Data lives in localStorage on the device. No server, no accounts.
+ */
+'use strict';
+
+const LS_ACTIVE = 'ct_active_session';
+const LS_HISTORY = 'ct_history';
+
+let schedule = null;          // loaded from schedule.json
+let selectedBlockIds = [];    // picker state
+let currentTab = 'train';
+
+const $view = document.getElementById('view');
+const $restBanner = document.getElementById('rest-banner');
+const $dialogRoot = document.getElementById('dialog-root');
+
+/* ---------------- storage ---------------- */
+
+function loadActive() {
+  try { return JSON.parse(localStorage.getItem(LS_ACTIVE)); } catch { return null; }
+}
+function saveActive(s) {
+  if (s) localStorage.setItem(LS_ACTIVE, JSON.stringify(s));
+  else localStorage.removeItem(LS_ACTIVE);
+}
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(LS_HISTORY)) || []; } catch { return []; }
+}
+function saveHistory(h) {
+  localStorage.setItem(LS_HISTORY, JSON.stringify(h));
+}
+
+/* ---------------- audio (unlocked on first touch) ---------------- */
+
+let audioCtx = null;
+document.addEventListener('pointerdown', () => {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch {}
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}, { capture: true });
+
+function beep(freq, durMs, when = 0) {
+  if (!audioCtx || audioCtx.state !== 'running') return;
+  const t = audioCtx.currentTime + when;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.frequency.value = freq;
+  osc.type = 'sine';
+  gain.gain.setValueAtTime(0.25, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + durMs / 1000);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(t);
+  osc.stop(t + durMs / 1000);
+}
+const tick = (n) => beep(n === 3 ? 440 : n === 2 ? 550 : 660, 120); // 3-2-1 rising ticks
+const doneTone = () => { beep(880, 160); beep(1175, 220, 0.18); };
+const buzz = (ms) => { if (navigator.vibrate) navigator.vibrate(ms); };
+
+/* ---------------- wake lock ---------------- */
+
+let wakeLock = null;
+async function acquireWakeLock() {
+  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch {}
+}
+function releaseWakeLock() {
+  wakeLock?.release().catch(() => {});
+  wakeLock = null;
+}
+
+/* ---------------- confirm dialog ---------------- */
+
+function confirmAsk(title, body, dangerLabel, onConfirm) {
+  $dialogRoot.innerHTML = `
+    <div class="dialog-scrim">
+      <div class="dialog">
+        <h3>${title}</h3>
+        <p>${body}</p>
+        <div class="row">
+          <button class="cancel">Cancel</button>
+          <button class="danger">${dangerLabel}</button>
+        </div>
+      </div>
+    </div>`;
+  $dialogRoot.querySelector('.cancel').onclick = () => ($dialogRoot.innerHTML = '');
+  $dialogRoot.querySelector('.dialog-scrim').onclick = (e) => {
+    if (e.target === e.currentTarget) $dialogRoot.innerHTML = '';
+  };
+  $dialogRoot.querySelector('.danger').onclick = () => {
+    $dialogRoot.innerHTML = '';
+    onConfirm();
+  };
+}
+
+/* ---------------- countdown engine (timestamp-based, survives backgrounding) ---------------- */
+
+let countdown = null; // { phases, phaseIdx, endAt, paused, pausedRemaining, onDone, render, lastWhole }
+
+function startCountdown(phases, { render, onDone }) {
+  stopCountdown();
+  countdown = { phases, phaseIdx: 0, paused: false, render, onDone, lastWhole: null };
+  countdown.endAt = Date.now() + phases[0].sec * 1000;
+  acquireWakeLock();
+  countdown.interval = setInterval(tickCountdown, 200);
+  tickCountdown();
+}
+
+function tickCountdown() {
+  const c = countdown;
+  if (!c || c.paused) return;
+  const remaining = Math.max(0, Math.ceil((c.endAt - Date.now()) / 1000));
+  if (remaining !== c.lastWhole) {
+    c.lastWhole = remaining;
+    if (remaining >= 1 && remaining <= 3) { tick(remaining); buzz(30); }
+    c.render(c.phases[c.phaseIdx], remaining);
+  }
+  if (remaining <= 0) advancePhase();
+}
+
+function advancePhase() {
+  const c = countdown;
+  doneTone();
+  buzz(80);
+  if (c.phaseIdx < c.phases.length - 1) {
+    c.phaseIdx += 1;
+    c.endAt = Date.now() + c.phases[c.phaseIdx].sec * 1000;
+    c.lastWhole = null;
+  } else {
+    const onDone = c.onDone;
+    stopCountdown();
+    onDone();
+  }
+}
+
+function stopCountdown() {
+  if (countdown?.interval) clearInterval(countdown.interval);
+  countdown = null;
+  releaseWakeLock();
+}
+
+function pauseToggleCountdown() {
+  const c = countdown;
+  if (!c) return;
+  if (c.paused) {
+    c.endAt = Date.now() + c.pausedRemaining;
+    c.paused = false;
+  } else {
+    c.pausedRemaining = Math.max(0, c.endAt - Date.now());
+    c.paused = true;
+  }
+}
+
+function adjustCountdown(deltaSec) {
+  const c = countdown;
+  if (!c) return;
+  if (c.paused) c.pausedRemaining = Math.max(0, c.pausedRemaining + deltaSec * 1000);
+  else c.endAt = Math.max(Date.now(), c.endAt + deltaSec * 1000);
+  c.lastWhole = null;
+  tickCountdown();
+}
+
+/* ---------------- TIME-set overlay ---------------- */
+
+function runTimedSet(ex, onComplete) {
+  const phases = [{ kind: 'prep', label: 'Get ready', sec: 3 }];
+  if (ex.per_side) {
+    phases.push({ kind: 'work', label: 'First side', sec: ex.durationSec });
+    phases.push({ kind: 'prep', label: 'Switch sides', sec: 10 });
+    phases.push({ kind: 'work', label: 'Second side', sec: ex.durationSec });
+  } else {
+    phases.push({ kind: 'work', label: 'Work', sec: ex.durationSec });
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.innerHTML = `
+    <div class="phase-label"></div>
+    <div class="big-time"></div>
+    <div class="ex-label">${ex.name}</div>
+    <div class="controls">
+      <button class="pause">Pause</button>
+      <button class="skip">Skip</button>
+      <button class="stop">Stop</button>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const close = () => { stopCountdown(); overlay.remove(); };
+
+  overlay.querySelector('.pause').onclick = (e) => {
+    pauseToggleCountdown();
+    e.target.textContent = countdown?.paused ? 'Resume' : 'Pause';
+  };
+  overlay.querySelector('.skip').onclick = () => advancePhase();
+  overlay.querySelector('.stop').onclick = close;
+
+  startCountdown(phases, {
+    render(phase, remaining) {
+      overlay.className = 'overlay ' + phase.kind;
+      overlay.querySelector('.phase-label').textContent = phase.label;
+      overlay.querySelector('.big-time').textContent = fmtTime(remaining);
+    },
+    onDone() {
+      overlay.remove();
+      onComplete();
+    },
+  });
+}
+
+/* ---------------- rest banner ---------------- */
+
+function startRest(sec, label) {
+  $restBanner.classList.remove('hidden');
+  $restBanner.innerHTML = `
+    <div class="rest-time"></div>
+    <div class="rest-label">Rest — next: ${label}</div>
+    <button class="minus">−15</button>
+    <button class="plus">+15</button>
+    <button class="skip">Skip</button>`;
+  $restBanner.querySelector('.minus').onclick = () => adjustCountdown(-15);
+  $restBanner.querySelector('.plus').onclick = () => adjustCountdown(15);
+  $restBanner.querySelector('.skip').onclick = hideRest;
+
+  startCountdown([{ kind: 'rest', label: 'Rest', sec }], {
+    render(_phase, remaining) {
+      const el = $restBanner.querySelector('.rest-time');
+      if (el) el.textContent = fmtTime(remaining);
+    },
+    onDone: hideRest,
+  });
+}
+
+function hideRest() {
+  stopCountdown();
+  $restBanner.classList.add('hidden');
+  $restBanner.innerHTML = '';
+}
+
+/* ---------------- helpers ---------------- */
+
+function fmtTime(totalSec) {
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return m > 0 ? `${m}:${String(s).padStart(2, '0')}` : `${s}`;
+}
+
+function fmtDate(iso) {
+  return new Date(iso).toLocaleDateString(undefined, {
+    weekday: 'short', day: 'numeric', month: 'short',
+  });
+}
+
+function targetText(ex) {
+  const side = ex.per_side ? '/side' : '';
+  if (ex.metric === 'TIME') return `${ex.sets} × ${ex.durationSec}s${side}`;
+  const load = ex.metric === 'REPS_LOAD' ? ` @ ${ex.loadKg} kg` : '';
+  return `${ex.sets} × ${ex.targetReps}${side}${load}`;
+}
+
+// Last logged load/reps for an exercise, scanning history newest-first.
+function lastLogged(exId) {
+  const history = loadHistory();
+  for (let i = history.length - 1; i >= 0; i--) {
+    for (const b of history[i].blocks) {
+      for (const ex of b.exercises) {
+        if (ex.id !== exId) continue;
+        const doneSets = ex.sets.filter((s) => s.done);
+        if (doneSets.length) return doneSets[doneSets.length - 1];
+      }
+    }
+  }
+  return null;
+}
+
+/* ---------------- session lifecycle ---------------- */
+
+function startSession() {
+  const blocks = schedule.blocks
+    .filter((b) => selectedBlockIds.includes(b.id))
+    .map((b) => ({
+      id: b.id,
+      name: b.name,
+      exercises: b.exercises.map((ex) => {
+        const last = lastLogged(ex.id);
+        return {
+          id: ex.id,
+          name: ex.name,
+          metric: ex.metric,
+          per_side: !!ex.per_side,
+          restSec: ex.rest_sec,
+          cue: ex.cue,
+          targetReps: ex.reps ?? null,
+          durationSec: ex.duration_sec ?? null,
+          loadKg: last?.load ?? ex.load_kg ?? null,
+          sets: Array.from({ length: ex.sets }, () => ({
+            done: false,
+            reps: null,
+            load: last?.load ?? ex.load_kg ?? null,
+          })),
+        };
+      }),
+    }));
+  saveActive({ startedAt: new Date().toISOString(), blocks });
+  selectedBlockIds = [];
+  render();
+}
+
+function finishSession() {
+  const session = loadActive();
+  session.finishedAt = new Date().toISOString();
+  const history = loadHistory();
+  history.push(session);
+  saveHistory(history);
+  saveActive(null);
+  hideRest();
+  render();
+}
+
+function discardSession() {
+  saveActive(null);
+  hideRest();
+  render();
+}
+
+/* ---------------- render: train tab ---------------- */
+
+function renderPicker() {
+  const total = schedule.blocks
+    .filter((b) => selectedBlockIds.includes(b.id))
+    .reduce((sum, b) => sum + b.duration_min, 0);
+
+  $view.innerHTML = `
+    <h1>Today</h1>
+    <p class="sub">Pick your blocks, then start.</p>
+    <div id="block-list"></div>
+    <div class="start-bar">
+      <button class="btn-primary" id="start-btn" ${selectedBlockIds.length ? '' : 'disabled'}>
+        ${selectedBlockIds.length ? `Start session · ~${total} min` : 'Select at least one block'}
+      </button>
+    </div>`;
+
+  const list = $view.querySelector('#block-list');
+  for (const b of schedule.blocks) {
+    const selected = selectedBlockIds.includes(b.id);
+    const card = document.createElement('button');
+    card.className = 'block-card' + (selected ? ' selected' : '');
+    card.innerHTML = `
+      <span class="tick">${selected ? '✓' : ''}</span>
+      <span class="meta">
+        <span class="name">${b.name}</span><br>
+        <span class="detail">~${b.duration_min} min · ${b.exercises.map((e) => e.name).join(' · ')}</span>
+      </span>`;
+    card.onclick = () => {
+      selectedBlockIds = selected
+        ? selectedBlockIds.filter((id) => id !== b.id)
+        : [...selectedBlockIds, b.id];
+      render();
+    };
+    list.appendChild(card);
+  }
+
+  $view.querySelector('#start-btn').onclick = () => {
+    if (selectedBlockIds.length) startSession();
+  };
+}
+
+function renderSession(session) {
+  $view.innerHTML = `
+    <div class="session-head">
+      <h1>Session</h1>
+      <div>
+        <button class="btn-ghost danger" id="discard-btn">Discard</button>
+        <button class="btn-ghost" id="finish-btn">Finish</button>
+      </div>
+    </div>`;
+
+  session.blocks.forEach((block, bi) => {
+    const section = document.createElement('div');
+    section.className = 'block-section';
+    section.innerHTML = `<div class="block-title">${block.name}</div>`;
+
+    block.exercises.forEach((ex, ei) => {
+      const card = document.createElement('div');
+      card.className = 'ex-card';
+      card.innerHTML = `
+        <div class="ex-name">${ex.name}</div>
+        <div class="ex-target">${targetText(ex)}</div>
+        <div class="ex-cue">${ex.cue}</div>`;
+
+      ex.sets.forEach((set, si) => {
+        const row = document.createElement('div');
+        row.className = 'set-row';
+        row.innerHTML = `<span class="set-label">Set ${si + 1}</span>`;
+
+        if (ex.metric === 'TIME') {
+          const btn = document.createElement('button');
+          btn.className = 'set-done-btn' + (set.done ? ' done' : '');
+          btn.textContent = '✓';
+          btn.onclick = () => toggleSetDone(bi, ei, si);
+          const timerBtn = document.createElement('button');
+          timerBtn.className = 'timer-btn';
+          timerBtn.textContent = `▶ ${ex.durationSec}s`;
+          timerBtn.onclick = () => {
+            hideRest();
+            runTimedSet(ex, () => markTimedSetDone(bi, ei, si));
+          };
+          row.appendChild(btn);
+          row.appendChild(timerBtn);
+        } else {
+          const repsInput = document.createElement('input');
+          repsInput.type = 'number';
+          repsInput.inputMode = 'numeric';
+          repsInput.placeholder = ex.targetReps;
+          if (set.reps != null) repsInput.value = set.reps;
+          repsInput.onchange = () => {
+            set.reps = repsInput.value === '' ? null : Number(repsInput.value);
+            saveActive(session);
+          };
+          row.appendChild(repsInput);
+          row.insertAdjacentHTML('beforeend', '<span class="unit">reps</span>');
+
+          if (ex.metric === 'REPS_LOAD') {
+            const loadInput = document.createElement('input');
+            loadInput.type = 'number';
+            loadInput.inputMode = 'decimal';
+            loadInput.step = '0.5';
+            if (set.load != null) loadInput.value = set.load;
+            loadInput.onchange = () => {
+              set.load = loadInput.value === '' ? null : Number(loadInput.value);
+              saveActive(session);
+            };
+            row.appendChild(loadInput);
+            row.insertAdjacentHTML('beforeend', '<span class="unit">kg</span>');
+          }
+
+          const btn = document.createElement('button');
+          btn.className = 'set-done-btn' + (set.done ? ' done' : '');
+          btn.textContent = '✓';
+          btn.onclick = () => toggleSetDone(bi, ei, si);
+          row.appendChild(btn);
+        }
+        card.appendChild(row);
+      });
+
+      section.appendChild(card);
+    });
+    $view.appendChild(section);
+  });
+
+  $view.querySelector('#discard-btn').onclick = () =>
+    confirmAsk('Discard session?', 'Deletes everything logged in this session.', 'Discard', discardSession);
+  $view.querySelector('#finish-btn').onclick = () =>
+    confirmAsk('Finish session?', 'Saves the session to history.', 'Finish', finishSession);
+}
+
+function toggleSetDone(bi, ei, si) {
+  const session = loadActive();
+  const ex = session.blocks[bi].exercises[ei];
+  const set = ex.sets[si];
+  set.done = !set.done;
+  if (set.done && set.reps == null && ex.targetReps && !ex.targetReps.includes('-')) {
+    set.reps = Number(ex.targetReps); // simple targets autofill; ranges stay manual
+  }
+  saveActive(session);
+  render();
+  if (set.done && ex.restSec) {
+    const isLastSet = si === ex.sets.length - 1;
+    startRest(ex.restSec, isLastSet ? 'next exercise' : `${ex.name} set ${si + 2}`);
+  }
+}
+
+function markTimedSetDone(bi, ei, si) {
+  const session = loadActive();
+  const ex = session.blocks[bi].exercises[ei];
+  ex.sets[si].done = true;
+  saveActive(session);
+  render();
+  if (ex.restSec && si < ex.sets.length - 1) startRest(ex.restSec, `${ex.name} set ${si + 2}`);
+}
+
+/* ---------------- render: history tab ---------------- */
+
+const expandedHist = new Set();
+
+function renderHistory() {
+  const history = loadHistory();
+  $view.innerHTML = `
+    <div class="session-head">
+      <h1>History</h1>
+      <button class="btn-ghost" id="export-btn">Export</button>
+    </div>`;
+
+  if (!history.length) {
+    $view.insertAdjacentHTML('beforeend', '<p class="empty">No sessions yet. Go climb something.</p>');
+  }
+
+  [...history].reverse().forEach((session, revIdx) => {
+    const idx = history.length - 1 - revIdx;
+    const doneSets = session.blocks.flatMap((b) => b.exercises.flatMap((e) => e.sets)).filter((s) => s.done).length;
+    const card = document.createElement('button');
+    card.className = 'hist-card';
+    card.innerHTML = `
+      <div class="hist-date">${fmtDate(session.startedAt)}</div>
+      <div class="hist-detail">${session.blocks.map((b) => b.name).join(' + ')} · ${doneSets} sets</div>`;
+
+    if (expandedHist.has(idx)) {
+      const details = document.createElement('div');
+      details.className = 'hist-sets';
+      for (const b of session.blocks) {
+        for (const ex of b.exercises) {
+          const sets = ex.sets.filter((s) => s.done);
+          if (!sets.length) continue;
+          const parts = sets.map((s) => {
+            if (ex.metric === 'TIME') return `${ex.durationSec}s`;
+            const load = s.load != null && s.load !== 0 ? `@${s.load}kg` : '';
+            return `${s.reps ?? '?'}${load}`;
+          });
+          details.insertAdjacentHTML('beforeend', `<div class="ex-line"><b>${ex.name}</b> — ${parts.join(', ')}</div>`);
+        }
+      }
+      card.appendChild(details);
+    }
+
+    card.onclick = () => {
+      expandedHist.has(idx) ? expandedHist.delete(idx) : expandedHist.add(idx);
+      render();
+    };
+    $view.appendChild(card);
+  });
+
+  $view.querySelector('#export-btn').onclick = exportHistory;
+}
+
+async function exportHistory() {
+  const payload = JSON.stringify({ exportedAt: new Date().toISOString(), history: loadHistory() }, null, 2);
+  const file = new File([payload], 'climbing-history.json', { type: 'application/json' });
+  if (navigator.canShare?.({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: 'Climbing history' }); return; } catch {}
+  }
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'climbing-history.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ---------------- root render + boot ---------------- */
+
+function render() {
+  if (currentTab === 'history') {
+    renderHistory();
+    return;
+  }
+  const session = loadActive();
+  if (session) renderSession(session);
+  else renderPicker();
+}
+
+document.querySelectorAll('.nav-btn').forEach((btn) => {
+  btn.onclick = () => {
+    currentTab = btn.dataset.tab;
+    document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b === btn));
+    render();
+  };
+});
+
+fetch('schedule.json')
+  .then((r) => r.json())
+  .then((data) => {
+    schedule = data;
+    render();
+  })
+  .catch(() => {
+    $view.innerHTML = '<p class="empty">Could not load the training plan. Open once with internet.</p>';
+  });
