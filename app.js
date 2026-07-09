@@ -204,9 +204,9 @@ function confirmAsk(title, body, dangerLabel, onConfirm) {
   };
 }
 
-/* Stepper dialog for editing a duration in seconds. */
-function editSecondsDialog(title, sub, initialSec, { step, min }, onSave) {
-  let value = initialSec;
+/* Stepper dialog for editing a small number (seconds by default). */
+function editSecondsDialog(title, sub, initialValue, { step, min, unit = 's' }, onSave) {
+  let value = initialValue;
   $dialogRoot.innerHTML = `
     <div class="dialog-scrim">
       <div class="dialog">
@@ -224,7 +224,7 @@ function editSecondsDialog(title, sub, initialSec, { step, min }, onSave) {
       </div>
     </div>`;
   const $value = $dialogRoot.querySelector('.value');
-  const draw = () => { $value.textContent = `${value}s`; };
+  const draw = () => { $value.textContent = `${value}${unit}`; };
   draw();
   $dialogRoot.querySelector('.minus').onclick = () => { value = Math.max(min, value - step); draw(); };
   $dialogRoot.querySelector('.plus').onclick = () => { value += step; draw(); };
@@ -460,7 +460,7 @@ function startSession() {
           targetReps: ex.reps ?? null,
           durationSec: ov.durationSec ?? ex.duration_sec ?? null,
           loadKg: last?.load ?? ex.load_kg ?? null,
-          sets: Array.from({ length: ex.sets }, () => ({
+          sets: Array.from({ length: ov.sets ?? ex.sets }, () => ({
             done: false,
             reps: null,
             load: last?.load ?? ex.load_kg ?? null,
@@ -723,6 +723,21 @@ function renderSession(session) {
       // Tappable timer chips — edits persist for future sessions (per-exercise override).
       const chips = document.createElement('div');
       chips.className = 'chip-row wrap';
+
+      const setsChip = document.createElement('button');
+      setsChip.className = 'chip';
+      setsChip.innerHTML = `<span class="chip-label">sets</span>${ex.sets.length} ✎`;
+      setsChip.onclick = () =>
+        editSecondsDialog(ex.name, 'Number of sets. Saved for future sessions too.', ex.sets.length, { step: 1, min: 1, unit: '' }, (v) => {
+          const doneCount = ex.sets.filter((s) => s.done).length;
+          const target = Math.max(v, doneCount, 1); // never delete already-completed sets
+          while (ex.sets.length < target) ex.sets.push({ done: false, reps: null, load: ex.loadKg ?? null });
+          while (ex.sets.length > target && !ex.sets[ex.sets.length - 1].done) ex.sets.pop();
+          saveActive(session);
+          saveOverride(ex.id, { sets: target });
+          render();
+        });
+      chips.appendChild(setsChip);
 
       // One-tap paste of last session's numbers (REPS / REPS_LOAD only).
       if (lastSets && ex.metric !== 'TIME') {
