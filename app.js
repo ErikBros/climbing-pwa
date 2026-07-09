@@ -389,7 +389,7 @@ function runExercise(bi, ei) {
   hideRest();
   const session = loadActive();
   const ex = session.blocks[bi].exercises[ei];
-  const todo = ex.sets.map((set, si) => ({ set, si })).filter((x) => !x.set.done);
+  const todo = ex.sets.map((set, si) => ({ set, si })).filter((x) => !x.set.done && !x.set.skipped);
   if (!todo.length) return;
 
   const markDone = (si) => {
@@ -677,6 +677,10 @@ function startSession() {
 
 function finishSession() {
   const session = loadActive();
+  // Anything neither done nor skipped counts as skipped — finishing early is fine.
+  for (const b of session.blocks)
+    for (const ex of b.exercises)
+      for (const s of ex.sets) if (!s.done && !s.skipped) s.skipped = true;
   session.finishedAt = new Date().toISOString();
   const history = loadHistory();
   history.push(session);
@@ -1048,10 +1052,10 @@ function renderSession(session) {
       const chips = document.createElement('div');
       chips.className = 'chip-row wrap';
 
-      if (ex.metric === 'TIME' && ex.sets.some((s) => !s.done)) {
+      if (ex.metric === 'TIME' && ex.sets.some((s) => !s.done && !s.skipped)) {
         const runChip = document.createElement('button');
         runChip.className = 'chip run';
-        const remaining = ex.sets.filter((s) => !s.done).length;
+        const remaining = ex.sets.filter((s) => !s.done && !s.skipped).length;
         runChip.textContent = remaining === ex.sets.length ? '▶ run all' : `▶ run ${remaining} left`;
         runChip.onclick = () => runExercise(bi, ei);
         chips.appendChild(runChip);
@@ -1122,7 +1126,7 @@ function renderSession(session) {
 
       ex.sets.forEach((set, si) => {
         const row = document.createElement('div');
-        row.className = 'set-row';
+        row.className = 'set-row' + (set.skipped ? ' skipped' : '');
         row.innerHTML = `<span class="set-label">Set ${si + 1}</span>`;
 
         if (ex.metric === 'TIME') {
@@ -1172,6 +1176,17 @@ function renderSession(session) {
           btn.onclick = () => toggleSetDone(bi, ei, si);
           row.appendChild(btn);
         }
+
+        const skipBtn = document.createElement('button');
+        skipBtn.className = 'skip-btn';
+        skipBtn.textContent = set.skipped ? 'undo' : 'skip';
+        skipBtn.onclick = () => {
+          set.skipped = !set.skipped;
+          if (set.skipped) set.done = false;
+          saveActive(session);
+          render();
+        };
+        row.appendChild(skipBtn);
         card.appendChild(row);
       });
 
@@ -1179,6 +1194,17 @@ function renderSession(session) {
     });
     $view.appendChild(section);
   });
+
+  // Big green finish CTA once every set is ticked or skipped.
+  const allSets = session.blocks.flatMap((b) => b.exercises.flatMap((e) => e.sets));
+  if (allSets.length && allSets.every((s) => s.done || s.skipped)) {
+    const bar = document.createElement('div');
+    bar.className = 'start-bar';
+    bar.innerHTML = '<button class="btn-primary finish-cta" id="finish-cta-btn">✓ Finish workout</button>';
+    bar.querySelector('#finish-cta-btn').onclick = () =>
+      confirmAsk('Finish session?', 'Saves the session to history.', 'Finish', finishSession);
+    $view.appendChild(bar);
+  }
 
   $view.querySelector('#discard-btn').onclick = () =>
     confirmAsk('Discard session?', 'Deletes everything logged in this session.', 'Discard', discardSession);
@@ -1195,6 +1221,7 @@ function toggleSetDone(bi, ei, si) {
   const ex = session.blocks[bi].exercises[ei];
   const set = ex.sets[si];
   set.done = !set.done;
+  if (set.done) set.skipped = false;
   if (set.done && set.reps == null && ex.targetReps && !ex.targetReps.includes('-')) {
     set.reps = Number(ex.targetReps); // simple targets autofill; ranges stay manual
   }
@@ -1210,6 +1237,7 @@ function markTimedSetDone(bi, ei, si) {
   const session = loadActive();
   const ex = session.blocks[bi].exercises[ei];
   ex.sets[si].done = true;
+  ex.sets[si].skipped = false;
   saveActive(session);
   render();
   if (ex.restSec && si < ex.sets.length - 1) startRest(ex.restSec, `${ex.name} set ${si + 2}`);
@@ -1360,12 +1388,14 @@ function renderHistory() {
       for (const b of session.blocks) {
         for (const ex of b.exercises) {
           const sets = ex.sets.filter((s) => s.done);
-          if (!sets.length) continue;
+          const skippedN = ex.sets.filter((s) => s.skipped).length;
+          if (!sets.length && !skippedN) continue;
           const parts = sets.map((s) => {
             if (ex.metric === 'TIME') return `${ex.durationSec}s`;
             const load = s.load != null && s.load !== 0 ? `@${s.load}kg` : '';
             return `${s.reps ?? '?'}${load}`;
           });
+          if (skippedN) parts.push(`${skippedN} skipped`);
           details.insertAdjacentHTML('beforeend', `<div class="ex-line"><b>${ex.name}</b> — ${parts.join(', ')}</div>`);
         }
       }

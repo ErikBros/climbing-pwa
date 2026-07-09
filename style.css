@@ -182,6 +182,10 @@ button.form-chips { display: inline-block; margin-bottom: 14px; }
 .dialog .row .save { background: var(--terracotta); color: #fff; }
 
 .set-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.set-row.skipped { opacity: 0.45; }
+.set-row.skipped .set-label { text-decoration: line-through; }
+.skip-btn { margin-left: auto; flex: none; background: none; color: var(--text-dim); font-size: 0.75rem; padding: 6px 8px; }
+.btn-primary.finish-cta { background: var(--sage); }
 .set-label { color: var(--text-dim); font-size: 0.8rem; width: 40px; flex: none; }
 .set-row input {
   width: 64px;
