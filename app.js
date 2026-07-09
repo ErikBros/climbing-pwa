@@ -866,6 +866,7 @@ function markTimedSetDone(bi, ei, si) {
 /* ---------------- render: week tab ---------------- */
 
 let viewWeekOffset = 0; // 0 = this week, 1 = next week
+let expandedDay = null; // "<wkKey>:<day>" whose add-blocks row is open
 
 function renderWeek() {
   const start = weekStart(viewWeekOffset);
@@ -915,6 +916,16 @@ function renderWeek() {
       .filter((b) => planned.includes(b.id))
       .reduce((sum, b) => sum + b.duration_min, 0);
 
+    const dayKey = `${wkKey}:${day}`;
+    const mutatePlan = (fn) => {
+      const p = loadWeekPlans();
+      const week = p[wkKey] || (p[wkKey] = {});
+      week[day] = fn(week[day] || []);
+      saveWeekPlans(p);
+      if (isToday && !loadActive()) selectedBlockIds = todaysPlannedBlockIds();
+      render();
+    };
+
     const row = document.createElement('div');
     row.className = 'day-row' + (isToday ? ' today' : '') + (isPast ? ' past' : '');
     row.innerHTML = `
@@ -922,24 +933,45 @@ function renderWeek() {
         <span class="day-name">${DAY_NAMES[day]} · ${fmtShort(date)}${isToday ? ' · today' : ''}</span>
         <span class="day-total">${totalMin ? `~${totalMin} min` : 'rest'}</span>
       </div>
-      <div class="chip-row wrap"></div>`;
+      <div class="chip-row wrap planned"></div>`;
 
-    const chipRow = row.querySelector('.chip-row');
-    for (const b of visibleBlocks()) {
-      const selected = planned.includes(b.id);
+    // Planned blocks only — tap a chip to remove it from the day.
+    const plannedRow = row.querySelector('.chip-row');
+    for (const id of planned) {
+      const b = visibleBlocks().find((x) => x.id === id);
+      if (!b) continue;
       const chip = document.createElement('button');
-      chip.className = 'chip' + (selected ? ' selected' : '');
-      chip.textContent = b.name;
-      chip.onclick = () => {
-        const p = loadWeekPlans();
-        const week = p[wkKey] || (p[wkKey] = {});
-        const cur = week[day] || [];
-        week[day] = selected ? cur.filter((id) => id !== b.id) : [...cur, b.id];
-        saveWeekPlans(p);
-        if (isToday && !loadActive()) selectedBlockIds = todaysPlannedBlockIds();
-        render();
-      };
-      chipRow.appendChild(chip);
+      chip.className = 'chip selected';
+      chip.textContent = b.name + ' ✕';
+      chip.onclick = () => mutatePlan((cur) => cur.filter((x) => x !== id));
+      plannedRow.appendChild(chip);
+    }
+
+    // ＋ opens this day's add-list; every other day stays compact.
+    const addChip = document.createElement('button');
+    addChip.className = 'chip add';
+    addChip.textContent = expandedDay === dayKey ? '－ close' : '＋ add';
+    addChip.onclick = () => {
+      expandedDay = expandedDay === dayKey ? null : dayKey;
+      render();
+    };
+    plannedRow.appendChild(addChip);
+
+    if (expandedDay === dayKey) {
+      const addRow = document.createElement('div');
+      addRow.className = 'chip-row wrap add-row';
+      const candidates = visibleBlocks().filter((b) => !planned.includes(b.id));
+      if (!candidates.length) {
+        addRow.innerHTML = '<span class="sub" style="margin:0">All blocks already planned.</span>';
+      }
+      for (const b of candidates) {
+        const chip = document.createElement('button');
+        chip.className = 'chip';
+        chip.textContent = `${b.name} · ${b.duration_min}m`;
+        chip.onclick = () => mutatePlan((cur) => [...cur, b.id]);
+        addRow.appendChild(chip);
+      }
+      row.appendChild(addRow);
     }
     $view.appendChild(row);
   });
