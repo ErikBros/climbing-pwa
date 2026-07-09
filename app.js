@@ -645,6 +645,15 @@ function renderBlockEditor() {
   };
 
   const libList = $view.querySelector('#lib-list');
+  libList.insertAdjacentHTML('beforeend', '<button class="block-card new-exercise" id="new-exercise-btn"><span class="tick">＋</span><span class="meta"><span class="name">New exercise</span><br><span class="detail">Add your own to the library</span></span></button>');
+  libList.querySelector('#new-exercise-btn').onclick = () => {
+    editingExercise = {
+      id: null, name: '', category: Object.keys(schedule.categories || {})[0] || 'pull',
+      metric: 'REPS', sets: 3, reps: '8', duration_sec: 30, load_kg: 0, rest_sec: 60,
+      per_side: false, cue: '',
+    };
+    render();
+  };
   const lib = libraryExercises();
   for (const [catKey, catName] of Object.entries(schedule.categories || {})) {
     const items = lib.filter((ex) => ex.category === catKey);
@@ -676,16 +685,6 @@ function renderBlockEditor() {
       libList.appendChild(row);
     }
   }
-  libList.insertAdjacentHTML('beforeend', '<button class="btn-ghost new-exercise" id="new-exercise-btn">＋ New exercise</button>');
-  libList.querySelector('#new-exercise-btn').onclick = () => {
-    editingExercise = {
-      id: null, name: '', category: Object.keys(schedule.categories || {})[0] || 'pull',
-      metric: 'REPS', sets: 3, reps: '8', duration_sec: 30, load_kg: 0, rest_sec: 60,
-      per_side: false, cue: '',
-    };
-    render();
-  };
-
   $view.querySelector('#cancel-edit-btn').onclick = () => { editingBlock = null; render(); };
   if (eb.id) {
     $view.querySelector('#delete-block-btn').onclick = () =>
